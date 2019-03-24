@@ -1,0 +1,153 @@
+% !TEX root = main.tex
+\section{领袖选举协议}
+\subsection{基础}
+在传统分布式系统\cite{lamport2001paxos,castro1999practical}中负责发起状态更变请求的节点被定义为主节点(Primary)，接受并验证请求的为副本节点（Backup）。而在区块链系统中，所有参与打包区块以及验证区块的节点，统称为矿工（Miner）\footnote{对于只参与同步并验证区块而不进行出块的节点，也称之为全量节点。}。为不引起混淆，后文统一将执行领袖选举协议的节点称之为提案者（Proposal），而选举具有出块权限的节点称之为领袖（Leader）。
+
+首先，我们给出领袖选举的相关定义。
+\begin{definition}
+（提案） 对于提案者$i$，其提案操作表示为函数$M_i(Tx,B',\zeta_i)$，其中$Tx$为待验证交易集合，$B'$为某已有区块，$\zeta_i$为提案参数。$M_i(Tx,\zeta_i)\in\{B,\bot\}$。
+\end{definition}
+
+%对于提案操作$M$，我们定义样本空间$\Omega$，
+
+\begin{definition}
+（验证） 对于提案者$i$，其验证操作表示为函数$V_i(B,t_i)$，其中$B$为待验证区块，$t_i$为提案者$i$的本地时间。$V_i(B,t_i)\in\{0,1\}$。
+\end{definition}
+
+\begin{definition}
+（领袖选举协议$\Pi$） 对于提案者集合$N$\footnote{$N$可以为有限或者无限集合。}，提案者$i\in N$在$Tx$和$B'$不为空的情况下，执行提案操作$M_i$，若输出为$B$则将其广播；同时提案者$j \in N$在收到区块$B$后执行验证操作$V_j$。对于提案者$i\in N$，满足$\exists j\in N,M_i=B\wedge V_j=1$时，提案者$i$成为领袖。
+
+%所有运行$\Pi$的提案者\textcolor{gray}{异步地？}执行提案操作$M$和验证操作$V$。其中$M$输入为$(Tx,B',\epsilon)$，输出$\in\{B,\bot\}$，$Tx$为待验证交易集合，$h(B^{\prec})$即上个区块$B^{\prec}$的哈希值，$\epsilon$为竞选参数。$V$输入为$B$，输出$\in\{0,1\}$。当且仅当$M=B \wedge V=1$时，
+\end{definition}
+
+
+
+通常而言，我们认为领袖选举机制需要满足以下性质：
+
+\begin{itemize}
+  \item 随机性：TBC%提案者选举需要引入随机性保证安全性；
+  \item 可验证：TBC%在基于$B$上一个区块$B'$的有效性下，通过$B$本身\textcolor{red}{以及全网共享信息？}可验证$B$的有效性；
+  %\item 合理采样率（Reasonable Sampling） 
+\end{itemize}
+
+不难发现领袖选举的随机性来自于提案操作$M$的随机性，这里我们首先给出$M$随机性的数学描述。我们将时间表示为有序的离散\footnote{当$T$为连续集合时，该定义仍然可描述，这里简单采用离散集合描述。}集合$T$，因此提案可以表示为随机过程$X:T\times \Omega\rightarrow \mathbb{X}=(X_t)_{t\in T}$。其中$\Omega$为提案事件的样本空间，即$\{M=B,M=\bot\}$。根据数学定义\cite{van2013introduction}，如果一个随机过程在某个时刻的取值在这个时刻之前就可能可以知道（可测），则此随机过程称之为可预测过程（Predictable Process）。进一步地，我们定义$M$的可预测性如下：
+
+\begin{definition}
+（提案$n$阶可预测性） 在$t$时刻，如果已知$Tx,B',\zeta_i$，可确定$t+1$至$t+n$时刻$M_i$的取值，但无法确定$t+n+1$时刻$M_i$的取值，则$M$具有$n$阶可预测性。
+\end{definition}
+
+对应地，我们给出不可预测性的定义。
+
+\begin{definition}
+（提案不可预测性） 在$t$时刻，如果已知$Tx,B',\zeta_i$，不可确定$t+1$时刻$M_i$的取值，则$M$具有不可预测性。
+\end{definition}
+
+
+%此外，在一般情况下每个选举出的提案者一次只能发布一个区块\footnote{Bitcoin-NG支持提案者多次出块，但单次出块数存在上限，因此可以认为出块频率仍与提案者选举频率相关}。受限于网络传输延迟[]，出块频率不应过高，防止产生大量分叉。
+
+
+无论共识采用何种机制，网络中的节点在接受到区块时需要首先验证区块的有效性，因此合法的区块需要具有有效性的特征。
+
+\begin{property}
+基于区块$B$本身即可验证其有效性，即                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   区块$B$的有效性仅与交易组$Tx_B$、$B^{\prec}$和$\varphi_B$相关。	
+\end{property}
+
+对于UTXO模型和Account模型，交易组的有效性验证方式不同，这里不做过多展开。对于$\varphi_B$，根据领袖选举协议的不同其有效性验证方式也有所不同，具体分析见后续章节。在保证$Tx_B$和$B\prec$有效性的情况下，区块$B$的有效性依赖于其出块证明$\varphi_B$的有效性。
+
+
+
+\subsection{PoW协议}
+我们首先给出基于PoW的领袖选举机制相关分析。
+
+\begin{definition}
+（选举协议$\Pi_w$） 基于PoW机制的领袖选举协议，有$\epsilon=\langle d,t,nonce,Mr(Tx),\tau \rangle$，且：\\
+\begin{equation}
+\label{eq:pow}
+M(Tx,B',\epsilon)=\begin{cases}
+B & \text{ if } h(d,t,h(B'),nonce,Mr(Tx))<\tau \\ 
+\bot & \text{ otherwise}
+\end{cases}
+\end{equation}
+其中$d\in N^+$表示困难程度，通常会随着时间动态调整,$\tau$表示目标值，$nonce$为一个临时随机数，$t$为时间戳，$h(\cdot)$表示某种哈希函数，例如Bitcoin中采用的SHA-256。对于提案区块$B$，有$t_B=t$，$Tx_B=Tx$，$Pre(B)=h(B')$以及$V(B)=\epsilon$。
+\end{definition}
+
+\begin{corollary}
+$\Pi_w$满足伪随机性。	
+\end{corollary}
+
+\begin{proof}
+根据公式\ref{eq:pow}，Pr$(M(Tx,B',\epsilon)=B)=$Pr$(h(d,t,h(B')|nonce,Mr(Tx))<\tau)$，$h(\cdot)$具有伪随机性\footnote{在给定$y$情况下，目前没有比穷举更好的算法来寻找$x$使其满足$h(y|x)<c$。}，TBC%即提案者成为领袖的随机性来自于$h$函数的随机性，。	
+\end{proof}
+
+\begin{corollary}
+$\Pi_w$具有可验证性。	
+\end{corollary}
+
+\begin{proof}
+对于提案区块$B$，有$V(B)=\epsilon$，对于其他提案者已知$nonce$  TBC
+\end{proof}
+
+
+
+  %\begin{algorithm}[htb]
+  %\caption{领袖选择算法}
+  %\label{alg:Framwork}
+  %\begin{algorithmic}[1]
+  %  \Require
+  %    The set of positive samples for current batch, $P_n$;
+  %    The set of unlabelled samples for current batch, $U_n$;
+  %    Ensemble of classifiers on former batches, $E_{n-1}$;
+  %  \Ensure
+  %    Ensemble of classifiers on the current batch, $E_n$;
+  %  \State Extracting the set of reliable negative and/or positive samples $T_n$ from $U_n$ with help of $P_n$;
+  %  \label{code:fram:extract}
+  %  \State Training ensemble of classifiers $E$ on $T_n \cup P_n$, with help of data in former batches;
+  %  \label{code:fram:trainbase}
+  %  \State $E_n=E_{n-1}cup E$;
+  %  \label{code:fram:add}
+  %  \State Classifying samples in $U_n-T_n$ by $E_n$;
+  %  \label{code:fram:classify}
+  %  \State Deleting some weak classifiers in $E_n$ so as to keep the capacity of $E_n$;
+  %  \label{code:fram:select} \\
+  %  \Return $E_n$;
+  %\end{algorithmic}
+%\end{algorithm}
+
+
+\subsection{非PoW协议}
+目前基于非PoW的领袖选举协议主要是基于权益的领袖选举，在此我们给出几种具有代表性的非PoW选举协议。
+
+\begin{definition}
+（选举协议$\Pi_{\bar{w}}^\alpha$） 对于提案函数$M_i(Tx,B',\zeta_i)$，有$\zeta_i=\langle s_i,t_i,\delta \rangle$，其中$s_i$表示提案者$i$的状态（即权益），$t_i$为$i$的本地时间，$\delta$表示某个伪随机数，并且
+\begin{equation}
+\label{eq:pos}
+M_i(Tx,B',\zeta_i)=\begin{cases}
+B & \text{ if } g(s_i,\delta,t_i)=0 \\ 
+\bot & \text{ otherwise}
+\end{cases}
+\end{equation}
+$g(\cdot)$表示\textcolor{red}{某种}函数。对于提案区块$B$，$Tx_B=Tx$，$B^{\prec}=B'$（即$h(B^\prec)=h(B')$），$\varphi_B=\langle t_B,s_i,sig_i,\delta\rangle$，其中$t_B=t_i|_{M_i=B}$，sig。
+
+对于验证操作$V_j$，具体地：
+\begin{equation}
+\label{eq:pos_validation}
+ V_j(B,t_j)=\begin{cases}
+1 & \text{ if } V({B^\prec},t_j)=1,t_j>t_B,g(s_i,\delta,t_B)=0,sig_i... \\ 
+0 & \text{ otherwise}
+\end{cases}
+\end{equation}
+\end{definition}
+
+可以看出，执行协议$\Pi^{\alpha}_{\bar{w}}$的提案者需要提供某个账户的权益证明（即$s_i$），当提案者的当前时间满足条件$g(s_i,\delta,t_B)=0$时，则可以成为领袖出块。
+
+\begin{corollary}
+$\Pi_{\bar{w}}^\alpha$中，$M_i$具有$\infty$阶可预测性。	
+\end{corollary}
+
+\begin{proof}
+ 对提案者$i$，在$t$时刻，已知$Tx$，$B'$和$\zeta_i=\langle s_i,t,\delta\rangle$，Pr$(M_i=B)$=Pr$(g(s_i,\delta,n)=0)\rightarrow[0,1]$。$g$为确定性函数，令$t_i=n+1$
+\end{proof}
+
+\begin{definition}
+（领袖选举协议$\beta$） 
+\end{definition}

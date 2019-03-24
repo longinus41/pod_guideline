@@ -1,0 +1,62 @@
+
+\usepackage{charter}
+\usepackage{fullpage}
+\usepackage[colorlinks=false]{hyperref}
+\usepackage{ifthen}
+\usepackage{comment}
+\usepackage[title,titletoc]{appendix}
+\usepackage{pagecolor}
+\usepackage{amsmath}
+\usepackage{amsfonts}
+%\usepackage[normalem]{ulem}
+\usepackage{siunitx}
+\usepackage{amsthm}
+\sisetup{per=slash, load=abbr}
+\usepackage{paralist}
+\usepackage{pgfplots}
+\usetikzlibrary{positioning}
+\usetikzlibrary{fit}
+\usetikzlibrary{snakes}
+\usetikzlibrary{shapes.geometric}
+\usetikzlibrary{patterns}
+\usetikzlibrary{shapes,arrows,chains}
+\usepgfplotslibrary{patchplots,colormaps}
+\usetikzlibrary{calc}
+\usetikzlibrary{positioning, fit}
+\usetikzlibrary{backgrounds}
+\usetikzlibrary{intersections}
+
+\newcommand{\whitepaper}[1]{\begin{center}\fbox{\parbox{0.75\textwidth}{{\small
+#1}}}\end{center}}
+
+\newcommand{\pcolor}{violet!25}
+
+\usepackage{setspace}
+\usepackage{algorithm2e}
+\bibliographystyle{ieeetr}
+
+\usepackage{geometry}
+\geometry{left=3cm,right=3cm,top=1.6cm,bottom=3cm,headheight=0pt,headsep=1.5em}
+\usepackage{fancyhdr}
+\pagestyle{fancy}
+\chead{\includegraphics[scale=0.2]{../common/Nebulas.png}}  %在此处插入logo.pdf图片 图片靠左
+\lhead{} % 页眉中间位置内容
+\rhead{}
+\usepackage{expl3}
+\ExplSyntaxOn
+\newcommand\latinabbrev[1]{
+  \peek_meaning:NTF . {% Same as \@ifnextchar
+    #1\@}%
+  { \peek_catcode:NTF a {% Check whether next char has same catcode as \'a, i.e., is a letter
+      #1.\@ }%
+    {#1.\@}}}
+\ExplSyntaxOff
+
+%Omit final dot from each def.
+\def\eg{\latinabbrev{e.g}}
+\def\etal{\latinabbrev{et al}}
+\def\etc{\latinabbrev{etc}}
+\def\ie{\latinabbrev{i.e}}
+\newcommand{\dapp}{DApp\xspace}
+
+%\setlength{\topskip}{1em}
