@@ -20,6 +20,7 @@
 Permissionless chain对于参与者没有身份验证[rethinking]，因此其出块者选取需要引入随机性，以保证安全。同时根据[]的研究，在网络传输带宽有限的情况下，区块产生间隔和链分叉率存在相关性，因此在采用最长链等结构的区块链中，我们认为出块者选举机制也需要控制全网出块频率。
 
 \subsection{交易验证}
+\label{subsec:intro_tx_verification}
 在分布式系统中，状态机复制可以有效解决多服务器之间的数据一致性问题\cite{schneider1990implementing}。最为经典的Paxos协议实现了宕机容错（crash-fault tolerant）的一致性算法\cite{lamport2001paxos}，其被广泛应用于数据库备份和域名服务等领域\cite{burrows2006chubby,chang2008bigtable}。
 
 随着区块链和数字货币的发展，基于拜占庭容错的一致性算法重新得到关注。在大规模节点网络中，网络通信成为瓶颈。以Bitcoin为代表的permissionless chain采取了最长链原则（Longest Chain Rule）\cite{nakamoto2008bitcoin}，\cite{sompolinsky2015secure}提出了最重子树原则（GHOST Rule）。最长链和GHOST协议通常被称之为链式协议（chain-based Protocols），链式协议中节点仅依据接收区块构建链结构实现一致性而不产生额外的状态同步开销。对应地，链式协议仅能保证最终一致性（Eventual Consistency），即保证所有节点最终就共享状态达成一致，但在某个时间段内，共享状态各个节点所存的状态可能不一致。
