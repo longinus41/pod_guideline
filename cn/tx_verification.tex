@@ -18,31 +18,92 @@
 
 从安全性角度，我们不希望已经验证的交易会存在修改的可能，即出现长距离攻击（Long-Range Attack）。同时，随着数据的不断增长，一些普通节点可能无法负担庞大的数据量，因此确定性的终结性可以减少数据的存储。最后，考虑到未来的分片设计，数据分片需要终结性作为基础。因此我们采用基于投票机制的设计，保证交易的终结性。
 
-\subsection{投票效益}
-对于投票协议，除了上述特性之外，我们认为其需要考虑如下因素：
+
+\subsection{已有投票策略分析}
+首先我们对目前基于投票的验证策略进行简单分析。根据是否需要验证节点进行身份验证，我们将投票策略分为Permissioned投票和Permissionless投票，通常来说分别适用于联盟链和公链。
+
+\subsubsection{Permissioned投票策略：PBFT}
+PBFT协议\cite{castro1999practical}中在已经指定主节点（Primary）的情况下，验证过程包括下面3步：
 \begin{itemize}
-	\item 女巫攻击：投票过程必须能够抵抗女巫攻击（Sybil Attack），解决方法可以是通过设置准入门槛或者将投票效益与参与者的资产挂钩。
-	\item 投票效益：通常而言区块链共识的投票是根据参与者的持有（或抵押）的资产计算所得，在没有投票成本的情况下，验证者更倾向分散其投票效益。一种解决方法是引入投票成本，或者对于分散投票行为作出惩罚\cite{buterin2017casper}。	
-	%\item 共谋：为防止贿选以及共谋现象（Colluding），投票前投票节点身份不应曝光，同时在每次投票后（例如公布对某个区块的签名公证），其将丧失投票资格，直至再次入选委员会。
-	%\item 延迟：尽管任何共识机制都需要保证在有限时间内结束决策，但我们仍希望投票能够快速达成一致，从而减少交易的确认延时（confirmation delay）。
+	\item PRE-PREPARE（预准备阶段）：主节点在收到请求后向所有副本节点广播与准备消息，其格式为$\langle \langle PRE-PREPARE,v,n,d \rangle_{\sigma p},m \rangle$，其中$v$是视图编号，$n$是消息序号，$d$是消息摘要，$m$为请求消息，$\sigma p$为主节点$p$的签名；
+	\item PREPARE（准备阶段）：一旦副本节点$i$接受预准备消息则进入准备阶段，同时该节点向所有副本节点发送准备消息$\langle PREPARE,v,n,d,i\rangle_{\sigma i}$。当节点$i$收到$2f$个从不同副本节点发来与$PRE-PREPARE$相匹配的$PREPARE$消息，则定义$prepared(m,v,n,i)$为真；
+	\item COMMIT（确认阶段）：当$prepared(m,v,n,i)$为真时，副本节点$i$将$\langle COMMIT,v,n,D(m),i\rangle$广播至其他副本节点，进入确认阶段。对节点$i$而言，$prepared(m,v,n,i)$为真且$i$已经接受了$2f+1$个$COMMIT$消息与$PRE-PREPARE$消息一致则定义$committed-local(m,v,n,i)$为真。而存在$f+1$个正常副本节点集合使得其中所有副本节点$i$的$prepared(m,v,n,i)$为真，则定义$committed(m,v,n)$为真。
 \end{itemize}
 
-\subsection{投票}
-首先我们给出投票行为的定义：
-\begin{definition}
-（投票） 对于验证节点$i$，已知某提案区块$B=\langle Tx_B,h(B^\prec),t_B,\varphi_B \rangle$，且满足$V(B,t)=1$，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(t,h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$t$表示用户$i$时间戳，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
-\end{definition}
+\textcolor{gray}{预准备阶段和准备阶段确保所有正常节点对同一个视图中的请求序号达成一致。而确认阶段保证了所有正常阶段对本地确认的请求序号达成一致，及时这些请求在每个节点的确认处于不同的视图。}
 
-在此基础之上我们分析可能出现的恶意投票行为。对于拜占庭验证节点$i$，无法伪造或篡改其他人的消息\footnote{通常而言，我们认为现有的签名算法可以保证信息无法篡改或者伪造。}，但仍可能出现如下恶意行为：
+不难发现，对于验证节点$i$，在其发布PREPARE消息后其决策已经公开，在其发布正常COMMIT消息前存在被攻击或者贿赂可能。因此对于采用PBFT算法的系统，无法适用于Permissionless环境。
+
+\subsubsection{Permissionless投票：Algorand}
+不同于PBFT，Algorand\cite{gilad2017algorand}针对Permissionless场景，其在领袖选举和交易验证中均采用了基于VRF的随机抽取策略，这里重点分析其交易验证部分。
+
+Algorand验证核心算法$BA\bigstar$如下：
+\begin{itemize}
+	\item Reduction：该步骤的目标是将需要达成共识的多个区块转化为对某一特定区块或者空块二选一达成共识；
+	\item BinaryBA$\bigstar$：基于Reduction的输出，在特定区块和空块之间达成共识。在$Maxstep$轮中没有达成共识则认为网络状况出现问题。
+\end{itemize}
+
+需要注意的是，在Reduction和BinaryBA$\bigstar$中，都需要多次执行$CommitteeVote()$和$CountVotes()$操作，即投票和计票。这里重点分析前者，$CommitteeVote()$输入包括$(ctx,round,step,\tau,value)$，其中$ctx$为环境变量（包括当前账本信息以及当前种子等等），$round$表示当前轮数，$step$表示执行当前计票操作的步骤（例如Reduction-1），$\tau$表示抽签比例参数，$value$表示投票区块。
+
+验证节点执行$CommitteeVote()$时需要先执行$Sortition()$即通过抽签判断自己是否有资格参与投票，不难发现，在给定$round$和随机种子（$ctx.seed$）情况下，每个验证节点每次执行$Sortition()$的结果固定。因此实际上在Reduction和BinaryBA$\bigstar$过程中，仍然是同一批节点在参与投票，并且在Reduction中的第一次$CommitteeVote()$之后，所有投票的节点身份已经曝光，因此也存在被攻击或者贿赂的风险。
+
+Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票选择，在保证三分之二诚实节点的情况下，如果收不到足够的投票则问题一定出在网络上\footnote{Algorand假设网络最终会收敛于同步模型}。但由于诚实节点仍可能会被攻击或者贿赂，我们认为该算法仍然存在问题。
+
+
+\subsection{投票模型}
+目前关于电子投票（Electronic Voting）的研究中\cite{kiayias2002self}，除去传统的隐私性（Privacy）、公平性（Fairness）和健壮性（Robustness）需求，理想的电子投票还需要满足如下要求：
+\begin{itemize}
+	%\item 隐私性：
+	%\item 健壮性：
+	%\item 公平性：
+	\item 可校验性（Universal-Verifiability）：任何第三方都可以验证最后的投票结果是否正确统计了合法选票\footnote{另有原子可校验性描述仅投票者可以验证投票结果是否正确统计了合法选票。}；
+	\item 无收据性（Receipt-Freeness）：投票者无法向第三方证明其所投的选票内容；
+	\item 无争议性（Dispute-Freeness）：任何第三方都可以验证协议的参与方是否正确执行了协议；
+	\item 自计票性（Self-Tallying）：任何第三方可以进行计票，而不需要可信第三方或者投票者的参与；
+	\item 完善保密性（Perfect Ballot Secrecy）：假设存在$n$个选民，任何$t$个（$t<n$）投票者的投票结果只有剩余$n-t$个投票者串通起来才能知道。
+\end{itemize}
+
+而对于共识机制中的投票系统，由于不存在可信的第三方机构，每个验证节点既是投票者也是计票者，因此其必须满足可校验性和自计票性。
+
+现有大多数基于投票的共识机制都无法满足无收据性和无争议性，具体地来说，对于拜占庭验证节点，虽然无法伪造或篡改其他人的消息\footnote{通常而言，我们认为现有的签名算法可以保证信息无法篡改或者伪造。}，但仍可能出现如下恶意行为：
 
 \begin{itemize}
 	\item 恶意投票：恶意验证者不发布任何投票或者对其他验证者发布不同的投票，例如对部分验证者发布$\langle pk_i,sign_{sk_i}(t,h(B_1),\pi_i) \rangle$，而对另一部分验证者发布$\langle pk_i,sign_{sk_i}(t,h(B_2),\pi_i) \rangle$，$B_1 \neq B_2$。
-	\item 割裂网络：在采用Gossip协议传输的网络，恶意节点可能在收到其他节点的投票后不向其他节点转发该信息，导致原有投票信息无法广播到所有节点。
+	\item 割裂网络：在采用Gossip协议传输的网络中，恶意节点可能在收到其他节点的投票后不向其他节点转发该信息，导致原有投票信息无法广播到所有节点。
 	\item 共谋：恶意节点在投票前或者投票过程中得知其他验证者身份，从而贿赂其他验证者使其投票决策发生变化。
 \end{itemize}
 
-前两种行为会导致决策无法收敛，从而影响共识的活性。而最后一种行为虽然不会影响共识活性，但可能导致潜在的安全问题。
+可以发现恶意投票和割裂网络违背了无争议性，这两种行为会导致决策无法收敛，从而影响共识的活性，目前的投票共识往往通过监督检举的方式来减少恶意投票和割裂网络行为\cite{buterin2017casper}。
+
+共谋行为则违背了无收据性，\textcolor{red}{现有大部分投票共识都没有考虑拜占庭节点的共谋行为}并且假设系统中拜占庭节点比例低于某个阈值（例如三分之一），而实际上，由于共谋行为的存在，系统中拜占庭节点比例会更高。
+
+%即便，其仍可能通过共谋导致潜在的安全问题。
+我们认为理想的投票机制应该抵抗上述三种恶意行为。首先，我们给出投票流程中的相关定义：
+
+\begin{definition}
+	（注册）对于任何期望参与验证过程的节点$i$，执行操作$R(s_i,\varepsilon)$，$s_i$为节点$i$的状态，$\varepsilon$为额外证明输入\textcolor{gray}{（通常为某个随机数）}，$R$输出为
+\end{definition}
+
+\begin{definition}
+（投票） 对于验证节点$i$，在接受某提案区块$B$后，满足$V(B,t)=1$的情况下，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
+\end{definition}
+
+\begin{definition}
+	（验票）
+\end{definition}
+
+\begin{definition}
+（计票） 对于验证节点$j$，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
+\end{definition}
 
 
+\subsection{补充：投票效益}
+除了投票过程中可能出现的攻击，对于投票效益的计算，我们认为也可能存在如下潜在的安全问题：
 
+\begin{itemize}
+	\item 女巫攻击：投票过程必须能够抵抗女巫攻击（Sybil Attack），解决方法可以是通过设置准入门槛或者将投票效益与参与者的资产挂钩。
+	\item Nothing-at-Stake：通常而言区块链共识的投票是根据参与者的持有（或抵押）的资产计算所得，在没有投票成本的情况下，验证者更倾向分散其投票效益。一种解决方法是引入投票成本，或者对于分散投票行为作出惩罚\cite{buterin2017casper}。	
+	%\item 共谋：为防止贿选以及共谋现象（Colluding），投票前投票节点身份不应曝光，同时在每次投票后（例如公布对某个区块的签名公证），其将丧失投票资格，直至再次入选委员会。
+	%\item 延迟：尽管任何共识机制都需要保证在有限时间内结束决策，但我们仍希望投票能够快速达成一致，从而减少交易的确认延时（confirmation delay）。
+\end{itemize}
 

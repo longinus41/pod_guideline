@@ -1,0 +1,41 @@
+% !TEX root = main.tex
+\section{相关研究}
+\subsection{领袖选举}
+相比于传统分布式系统，在匿名和去中心化场景下区块链共识的领袖选举需要应对更多挑战。同时，由于区块链系统对于节点的设定不同，其采领袖选举机制也不尽相同。
+
+%为保证匿名性，区块链中所有节点均表示为基于公钥产生的地址（例如以太坊中长度为64位的16进制字符串），
+%同时为保证去中心化以及防止DDoS攻击，客户端产生的transaction会更新到全节点共享的交易池中（transactions pool）而无法指定特定的节点来发起提案（proposal）[]。
+以比特币\cite{nakamoto2008bitcoin}和以太坊\cite{wood2014ethereum}为代表的区块链对于出块节点（即领袖）没有准入限制，参与领袖选举的节点可以随时加入离开整个网络，此类区块链系统称之为无授权区块链（Permissionless Chain）。这类系统通过节点竞争方式选举领袖，其中最为广泛采用的算法是工作量证明（Proof-of-Work，PoW）。需要指出的是，PoW仅仅实现了领袖选举，而并不是完整的共识协议，这一点在比特币白皮书上已经指出\cite{nakamoto2008bitcoin}，而一种普遍的错误是将PoW和比特币共识（通常称之为Nakamoto Consensus）混为一谈。
+
+对于联盟链（Consortium Blockchain）以及部分采用DPoS机制的公链\cite{grigg2017eos}，参与节点需要通过授权并且不能随意加入离开，因此被定义为授权区块链（Permissioned Chain）。在此类系统中，一段时间内所有参与节点集合已知且不变，领袖选举可以采用简单的轮询机制（Round-Robin）[]。从而整个共识问题退化成传统分布式系统中的共识问题，即在领袖选择已经达成共识的情况下（此时领袖仍可以采取恶意行动），所有验证节点如何针对领袖的提案（出块）达成一致。
+
+目前关于授权区块链是否能称之为区块链尚存在争议\footnote{EOS is not a blockchain, https://thenextweb.com/hardfork/2018/11/01/eos-blockchain-benchmark/}，但可以肯定的一点是，无授权区块链更符合去中心化思想。不断有研究尝试解决无授权环境下的领袖选举问题。
+
+由于PoW会消耗大量电力，权益证明（Proof-of-Stake，PoS）随后被提出，不同于PoW，后者实现选举往往与链上资产相关而不依赖于物理算力因此都称之为PoS，但不同基于PoS的共识之间通常差别较大。早期的PoS仍然是基于PoW的变种实现\cite{king2012ppcoin}，即对谜题计算中的目标基于权益（Stake）或币龄（Coin-age）进行加权。作为备受瞩目的以太坊演进方案，Casper\cite{buterin2017casper}被认为是一种PoS协议，但实际上Casper是利用stake实现链式结构的终结性(Finality)，并不涉及领袖选举过程，后者仍然可以选择采用PoW机制。
+
+无授权区块链对于参与节点没有身份验证，因此对于领袖选取需要引入随机性，以保证安全\cite{pass2017rethinking}。近几年涌现出一些基于随机数生成（Random Number Generation，RNG）的共识机制实现了非PoW领袖选举方案\cite{gilad2017algorand,david2018ouroboros,hanke2018difinity}。尽管在出块方式和共识实现上存在区别（例如Ouroboros基于弱同步时钟），上述方案均利用伪随机函数（pseudo-random function）实现了领袖的随机选举。
+
+%同时根据[]的研究，在网络传输带宽有限的情况下，区块产生间隔和链分叉率存在相关性，因此在采用最长链等结构的区块链中，我们认为出块者选举机制也需要控制全网出块频率。
+
+\subsection{交易验证}
+\label{subsec:intro_tx_verification}
+在分布式系统中，状态机复制可以有效解决多服务器之间的数据一致性问题\cite{schneider1990implementing}。最为经典的Paxos协议实现了宕机容错（crash-fault tolerant）的一致性算法\cite{lamport2001paxos}，其被广泛应用于数据库备份和域名服务等领域\cite{burrows2006chubby,chang2008bigtable}。
+
+随着区块链和数字货币的发展，基于拜占庭容错的一致性算法重新得到关注。在大规模节点网络中，网络通信成为瓶颈。以Bitcoin为代表的permissionless chain采取了最长链原则（Longest Chain Rule）\cite{nakamoto2008bitcoin}，\cite{sompolinsky2015secure}提出了最重子树原则（GHOST Rule）。最长链和GHOST协议通常被称之为链式协议（chain-based Protocols），链式协议中节点仅依据接收区块构建链结构实现一致性而不产生额外的状态同步开销。对应地，链式协议仅能保证最终一致性（Eventual Consistency），即保证所有节点最终就共享状态达成一致，但在某个时间段内，共享状态各个节点所存的状态可能不一致。
+
+联盟链以及部分公链通过缩小节点规模，实现了更强的一致性保证。节点针对每个提案进行投票，通常基于PBFT\cite{castro1999practical}或者更为宽松的投机BFT算法\cite{kotla2007zyzzyva}，此类机制被称之为投票协议（vote-based Protocols）。相比于链式协议，投票协议对系统要求更为严格，PBFT和最差情况下的投机BFT网络通信开销为$O(n^2)$，因此采用此类协议的网络往往规模较小。
+
+基于PBFT机制，ByzCoin\cite{kogias2016enhancing}利用集体签名(collective signing)以及群签名(CoSi)实现了投票节点规模可扩展，因而在一些分片技术（sharding）中也被采用\cite{kokoris2018omniledger}。
+
+采用投票协议的区块链会针对每个出块进行一致性确认，因此每个区块状态不可能被扭转，从而实现终结性（Finality）。相比之下，基于链式结构的区块链在达到最终一致性前任何区块状态都可能发生改变（例如某个区块在某个时间后不再属于最长链），通常这种改变概率随着链式结构增长单调递减\cite{nakamoto2008bitcoin}，因此链式结构共识无法保证终结性，或者仅提供概率终结性（Probabilistic Finality）。较为特殊地，Casper\cite{buterin2017casper}在检查点（checkpoints）内部采用最长链原则，而不同检查点间则通过投票保证终结性。
+
+需要指出的是，通常认为采用链式协议的系统吞吐量（Throughput）低于基于投票协议的系统，实际上在仅满足最终一致性条件以及同等节点规模和网络环境下，链式协议实现状态同步开销更低。
+
+%Bitcoin和Ethereum的成功表明最终一致性能够满足去中心化交易和图灵完备编程需求，
+
+
+
+
+
+
+

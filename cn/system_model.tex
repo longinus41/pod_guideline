@@ -1,9 +1,11 @@
 % !TEX root = main.tex
 \section{系统模型}
 \subsection{网络模型}
-异步网络设定 TBA
+分布式系统中，节点之间的通信方式主要为消息传递（Message Passing）。在同步网络（Synchronous Network）模型下，所有节点的消息传输延迟不会超过某个阈值；而在异步网络（Asynchronous Network）模型下，节点间的消息传输延迟可以是任意值。根据FLP定理[]，异步网络环境下，只要存在一个拜占庭节点则BGP问题无解。
 
-由于网络传输延时的存在，网络中的节点无法实现完美同步时钟（Perfectly Synchronized Clock）。因此TBC
+目前所有拜占庭容错的共识算法均是基于同步网络模型，一些更为宽松的模型允许网络中除领袖以外节点之间的通信可以为异步网络，后者称之为“弱终止假设”（或“半异步网络”）\cite{castro1999practical}。在本文中，我们基于同步网络模型讨论共识算法。
+
+由于网络传输延时的存在，网络中的节点无法实现完美同步时钟（Perfectly Synchronized Clock）\footnote{或者说节点间的时钟同步本质上也是一个共识问题。}，一种更严谨的描述方法是逻辑时钟（Logical Clocks）\cite{lamport1978time}。
 
 在后文中，若没有特殊说明，$t$均表示节点的本地时间。
 
