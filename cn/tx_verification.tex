@@ -20,9 +20,9 @@
 
 
 \subsection{已有投票策略分析}
-首先我们对目前基于投票的验证策略进行简单分析。根据是否需要验证节点进行身份验证，我们将投票策略分为Permissioned投票和Permissionless投票，通常来说分别适用于联盟链和公链。
+首先我们对目前基于投票的验证策略进行简单分析。根据是否需要验证节点进行身份验证，我们将投票策略分为授权投票和无授权投票，通常来说分别适用于联盟链和公链。
 
-\subsubsection{Permissioned投票策略：PBFT}
+\subsubsection{授权投票策略：PBFT}
 PBFT协议\cite{castro1999practical}中在已经指定主节点（Primary）的情况下，验证过程包括下面3步：
 \begin{itemize}
 	\item PRE-PREPARE（预准备阶段）：主节点在收到请求后向所有副本节点广播与准备消息，其格式为$\langle \langle PRE-PREPARE,v,n,d \rangle_{\sigma p},m \rangle$，其中$v$是视图编号，$n$是消息序号，$d$是消息摘要，$m$为请求消息，$\sigma p$为主节点$p$的签名；
@@ -32,9 +32,9 @@ PBFT协议\cite{castro1999practical}中在已经指定主节点（Primary）的�
 
 \textcolor{gray}{预准备阶段和准备阶段确保所有正常节点对同一个视图中的请求序号达成一致。而确认阶段保证了所有正常阶段对本地确认的请求序号达成一致，及时这些请求在每个节点的确认处于不同的视图。}
 
-不难发现，对于验证节点$i$，在其发布PREPARE消息后其决策已经公开，在其发布正常COMMIT消息前存在被攻击或者贿赂可能。因此对于采用PBFT算法的系统，无法适用于Permissionless环境。
+不难发现，在PBFT策略中，验证节点$i$集合固定并且身份公开，在其发布PREPARE消息后其决策也公开可见，因而在其发布正常COMMIT消息前存在被攻击或者贿赂可能。所以对于采用PBFT算法的系统，无法适用于Permissionless环境。
 
-\subsubsection{Permissionless投票：Algorand}
+\subsubsection{无授权投票：Algorand}
 不同于PBFT，Algorand\cite{gilad2017algorand}针对Permissionless场景，其在领袖选举和交易验证中均采用了基于VRF的随机抽取策略，这里重点分析其交易验证部分。
 
 Algorand验证核心算法$BA\bigstar$如下：
@@ -63,7 +63,7 @@ Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票
 	\item 完善保密性（Perfect Ballot Secrecy）：假设存在$n$个选民，任何$t$个（$t<n$）投票者的投票结果只有剩余$n-t$个投票者串通起来才能知道。
 \end{itemize}
 
-而对于共识机制中的投票系统，由于不存在可信的第三方机构，每个验证节点既是投票者也是计票者，因此其必须满足可校验性和自计票性。
+而对于共识机制中的投票系统，由于不存在可信的第三方机构，每个验证节点既是投票者也是计票者\textcolor{red}{(即所谓的"all voters are talliers")}，因此其必须满足可校验性和自计票性。\textcolor{red}{论文\cite{kiayias2002self}指出在大规模的投票系统中，并不需要满足完善保密性。}
 
 现有大多数基于投票的共识机制都无法满足无收据性和无争议性，具体地来说，对于拜占庭验证节点，虽然无法伪造或篡改其他人的消息\footnote{通常而言，我们认为现有的签名算法可以保证信息无法篡改或者伪造。}，但仍可能出现如下恶意行为：
 
@@ -73,7 +73,7 @@ Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票
 	\item 共谋：恶意节点在投票前或者投票过程中得知其他验证者身份，从而贿赂其他验证者使其投票决策发生变化。
 \end{itemize}
 
-可以发现恶意投票和割裂网络违背了无争议性，这两种行为会导致决策无法收敛，从而影响共识的活性，目前的投票共识往往通过监督检举的方式来减少恶意投票和割裂网络行为\cite{buterin2017casper}。
+\textcolor{red}{作为分布式系统，区块链中所有验证节点通过P2P方式进行通信，因此任何节点在投票过程中都无法检验其他节点是否正确执行协议，即在投票过程中无争议性无法保证。}\footnote{尽管Casper通过Slash机制实现了检点的互相监督，但恶意行为被发现是基于交易已经上链的前提。}在这种情况下，恶意投票和割裂网络将变得可行。这两种行为会导致决策无法收敛，从而影响共识的活性。%目前的投票共识往往通过监督检举的方式来减少恶意投票和割裂网络行为\cite{buterin2017casper}。
 
 共谋行为则违背了无收据性，\textcolor{red}{现有大部分投票共识都没有考虑拜占庭节点的共谋行为}并且假设系统中拜占庭节点比例低于某个阈值（例如三分之一），而实际上，由于共谋行为的存在，系统中拜占庭节点比例会更高。
 
@@ -107,3 +107,26 @@ Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票
 	%\item 延迟：尽管任何共识机制都需要保证在有限时间内结束决策，但我们仍希望投票能够快速达成一致，从而减少交易的确认延时（confirmation delay）。
 \end{itemize}
 
+
+\begin{figure}
+\centering
+\begin{tikzpicture}[
+    declare function={func(\x,\mu) = (\x / (1 + exp(\mu-\x)));},
+    declare function={linefunc(\x) = \x;}
+]
+\begin{axis}[
+    axis lines=left,
+    enlargelimits=upper,
+ticks=none,axis x line=bottom,axis y line=left,xlabel={Nebulas Rank Factor},
+  ylabel={Nebulas Rank},
+      legend pos=north west,
+legend style={fill=none}
+]
+\addplot [dashed, domain=0:10, blue] {linefunc(x)};
+\addplot [smooth, domain=0:10, red] {func(x,3)};
+\addlegendentry{$f(x)=x$}
+\addlegendentry{$f(x)=x/(1 + e^{a + b\cdot x})$}
+\end{axis}
+\end{tikzpicture}
+\caption{The curve of the Nebulas Rank function \label{fig-nr}}
+\end{figure}

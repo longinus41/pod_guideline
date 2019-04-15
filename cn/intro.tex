@@ -1,15 +1,15 @@
 % !TEX root = main.tex
 \section{简介}
-共识问题(Consensus Problem)是研究分布式系统中所有节点达成一致的问题，通常描述为状态机复制（State Machine Replication），即对于所有节点均以相同顺序执行一个命令序列。而当存在恶意节点的情况下，共识被描述成拜占庭容错问题（Byzantine Fault Tolerant，BFT）\cite{pease1980reaching}。
+共识问题(Consensus Problem)是研究分布式系统中所有节点达成一致的问题，通常被定义为状态机复制（State Machine Replication），即对于所有节点均以相同顺序执行一个命令序列。而当存在恶意节点的情况下，共识被描述为拜占庭容错问题（Byzantine Fault Tolerant，BFT）\cite{pease1980reaching}。
 
-在区块链出现之前，拜占庭环境下的共识问题并没有得到广泛关注。大多数BFT算法实际上在尝试解决拜占庭将军问题（Byzantine Generals Problem，BGP）\cite{lamport1982byzantine}，即拜占庭容错问题的一个特例。在许多分布式服务中，对于发起状态更变的节点称之为领袖节点（Leader），后者一般由发起请求客户端指定或者按照某种固定算法决定\footnote{一些算法允许在领袖发生故障时进行领袖重新选举。}，所有节点对谁是领袖节点很容易达成共识。因此多数已有的共识算法不包括领袖选举或者并未强调其重要性。
+在区块链技术出现之前，拜占庭环境下的共识问题并没有得到广泛关注。大多数BFT算法实际上在尝试解决拜占庭将军问题（Byzantine Generals Problem，BGP）\cite{lamport1982byzantine}，即拜占庭容错问题的一个特例。在许多分布式服务中，对于发起状态更变的节点称之为领袖节点（Leader），后者一般由发起请求客户端指定或者按照某种固定算法决定\footnote{一些算法允许在领袖发生故障时进行领袖重新选举。}，所有节点对谁是领袖节点很容易达成共识。因此多数已有的共识算法不包括领袖选举或者并未强调其重要性。
 
 %传统分布式服务中\cite{castro1999practical}，
 %领导者的选取由发起请求的客户端（client）指定或者由固定算法决定(例如$mod\ n$)，
 
-区块链技术的出现让共识重新得到关注，2008年发布的比特币白皮书\cite{nakamoto2008bitcoin}阐述了拜占庭环境下的共识解决思路，但其与传统的BFT算法存在较大差异。具体地，比特币中通过算力竞争的方式决定出块权（即领袖节点的选举），并且使用最长链原则实现了交易验证。
+区块链技术的出现让共识重新得到关注，2008年发布的比特币白皮书\cite{nakamoto2008bitcoin}阐述了拜占庭环境下的共识解决思路，但其与传统的BFT算法存在较大差异。具体地，比特币中通过算力竞争的方式决定出块权（即领袖节点的选举），并且使用最长链原则实现了大规模节点的状态同步。
 
-区块链共识仍然属于广义上的BFT问题，区块链之上的共识算法应该包括\textbf{领袖选举（Leader Election）}和\textbf{交易验证}（Transaction Verification）两部分\cite{eyal2016bitcoin,kogias2016enhancing}。尽管在部分区块链共识算法中两者没有被严格划分并且存在相关性\cite{gilad2017algorand}，但我们认为将领袖选举和交易验证的解耦思想有助于我们理解区块链共识并且在此基础上设计更加合理的共识算法。
+区块链共识仍然属于广义上的BFT问题，区块链之上的共识算法应该包括\textbf{领袖选举（Leader Election）}和\textbf{交易验证}（Transaction Verification）两部分\cite{eyal2016bitcoin,kogias2016enhancing}。尽管在一些区块链共识算法中两者没有被严格划分并且存在相关性\cite{gilad2017algorand}，但我们认为将领袖选举和交易验证的解耦思想有助于我们理解区块链共识并且在此基础上设计更加合理的共识算法。
 
 本文旨在简单介绍区块链共识中的领袖选举和交易验证，在此基础上给出相应的分析，从而为后续的共识设计提供指导。
 
