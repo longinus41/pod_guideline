@@ -1,5 +1,7 @@
 % !TEX root = main.tex
 \section{相关研究}
+本章节简单介绍了已有的区块链共识研究工作，这里并未按照一些公认的划分方法\footnote{很多研究通常会将共识划分为PoW、PoS等等。}，而是根据上述共识流程进行进行介绍。更详细的介绍可以参见星云共识调研报告[]。
+
 \subsection{领袖选举}
 相比于传统分布式系统，在匿名和去中心化场景下区块链共识的领袖选举需要应对更多挑战。同时，由于区块链系统对于节点的设定不同，其采领袖选举机制也不尽相同。
 
@@ -25,7 +27,7 @@
 
 联盟链以及部分公链通过缩小节点规模，实现了更强的一致性保证。节点针对每个提案进行投票，通常基于PBFT\cite{castro1999practical}或者更为宽松的投机BFT算法\cite{kotla2007zyzzyva}，此类机制被称之为投票协议（vote-based Protocols）。相比于链式协议，投票协议对系统要求更为严格，PBFT和最差情况下的投机BFT网络通信开销为$O(n^2)$，因此采用此类协议的网络往往规模较小。
 
-基于PBFT机制，ByzCoin\cite{kogias2016enhancing}利用集体签名(collective signing)以及群签名(CoSi)实现了投票节点规模可扩展，因而在一些分片技术（sharding）中也被采用\cite{kokoris2018omniledger}。
+基于PBFT机制，ByzCoin\cite{kogias2016enhancing}利用集体签名(Collective Signing)实现了投票节点规模可扩展，因而在一些分片技术（sharding）中也被采用\cite{kokoris2018omniledger}。
 
 采用投票协议的区块链会针对每个出块进行一致性确认，因此每个区块状态不可能被扭转，从而实现终结性（Finality）。相比之下，基于链式结构的区块链在达到最终一致性前任何区块状态都可能发生改变（例如某个区块在某个时间后不再属于最长链），通常这种改变概率随着链式结构增长单调递减\cite{nakamoto2008bitcoin}，因此链式结构共识无法保证终结性，或者仅提供概率终结性（Probabilistic Finality）。较为特殊地，Casper\cite{buterin2017casper}在检查点（checkpoints）内部采用最长链原则，而不同检查点间则通过投票保证终结性。
 

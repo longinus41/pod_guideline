@@ -1,5 +1,7 @@
 % !TEX root = main.tex
 \section{领袖选举}
+
+
 \label{sec:leader_election}
 \subsection{基础}
 在传统分布式系统\cite{lamport2001paxos,castro1999practical}中负责发起状态更变请求的节点被定义为主节点(Primary)，接受并验证请求的为副本节点（Backup）。而在区块链系统中，所有参与打包区块以及验证区块的节点，统称为矿工（Miner）\footnote{对于只参与同步并验证区块而不进行出块的节点，也称之为全量节点。}。为不引起混淆，后文统一将执行领袖选举协议的节点称之为提案者（Proposal），而选举具有出块权限的节点称之为领袖（Leader）。
