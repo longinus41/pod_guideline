@@ -1,7 +1,7 @@
 % !TEX root = main.tex
 \section{交易验证}
 \subsection{基础}
-基于第\ref{sec:leader_election}章，在已选举出提案者的情况下，交易验证对出块进行验证。首先给出拜占庭环境下交易验证的相关定义和特性。
+基于第\ref{sec:leader_election}章，在已选举出提案者的情况下，交易验证对提案者的出块进行验证。首先给出拜占庭环境下交易验证的相关定义和特性。
 
 \begin{definition}
 （交易验证） 对于验证者集合$V$\footnote{类似于定义\ref{def:leader_election}，此处$V$可为有限或无限集合。}，包含$n$个节点，其中最多有$f$个拜占庭节点，即最少有$n-f$个诚实节点。所有节点必须从提案中最终做出决策，并且满足下述条件：
@@ -12,32 +12,38 @@
 \end{itemize}
 \end{definition}
 
-在同步网络环境下，任何交易验证协议，都需要满足上述条件\footnote{部分研究中将可终止性和有效性描述为活性（Liveness）。}。%而在异步网络环境中，通常
+在同步网络环境下，任何交易验证协议，都需要满足上述条件\footnote{部分研究中将可终止性和有效性描述为活性（Liveness）。}。在此基础之上，最终性也是需要考虑的指标之一。
 
-如\ref{subsec:intro_tx_verification}小节介绍，交易确认机制根据块是否具有终结性划分为链式协议和基于投票协议。投票式交易验证满足终结性，即交易一旦完成验证则不可能发生改变。对应地，链式交易验证则仅满足概率终结性，即随着链结构的增长交易发生改变逐渐降低，但无法为$0$。需要指出的是，即便是类似PBFT的投票协议，其数据结构仍可以采用链式区块结构。
+如\ref{subsec:intro_tx_verification}小节介绍，交易确认机制根据块是否具有终结性划分为链式协议和基于投票协议。投票式交易验证满足最终性，即交易一旦完成验证则不可能发生改变。对应地，链式交易验证则仅满足概率最终性，即随着链结构的增长交易状态改变的概率逐渐降低，但永远无法达到零，即仍然存在被改变可能。需要指出的是，即便是基于投票的验证协议，其底层数据结构仍可以采用链式区块结构。
 
-从安全性角度，我们不希望已经验证的交易会存在修改的可能，即出现长距离攻击（Long-Range Attack）。同时，随着数据的不断增长，一些普通节点可能无法负担庞大的数据量，因此确定性的终结性可以减少数据的存储。最后，考虑到未来的分片设计，数据分片需要终结性作为基础。因此我们采用基于投票机制的设计，保证交易的终结性。
+从安全性角度，我们不希望已经验证的交易会存在修改的可能，即出现双重支付（Double-Spending）或者长距离攻击（Long-Range Attack）。虽然比特币等采用链式验证协议的系统认为随着最长链的增长其被扭转概率会非常低，但实际上目前比特币网络中排名前四的矿池已经占据了全网$50\%$以上算力\footnote{https://www.blockchain.com/pools.}，这意味着其安全性是由矿池决定而并非系统本身。因此理论上安全的区块链系统必须满足最终性。
+
+同时，随着数据的不断增长，一些普通节点可能无法负担庞大的数据量，因此最终性可以减少数据的存储。最后，考虑到未来的分片设计，数据分片需要最终性作为基础。
+
+综上，我们采用基于投票机制的设计，保证交易验证的最终性。
 
 
 \subsection{已有投票策略分析}
 首先我们对目前基于投票的验证策略进行简单分析。根据是否需要验证节点进行身份验证，我们将投票策略分为授权投票和无授权投票，通常来说分别适用于联盟链和公链。
 
 \subsubsection{授权投票策略：PBFT}
-PBFT协议\cite{castro1999practical}中在已经指定主节点（Primary）的情况下，验证过程包括下面3步：
+PBFT协议\cite{castro1999practical}最早并不是用于区块链，协议中负责提案的节点称之为主节点（Primary），即领袖节点。在已经指定领袖节点的情况下，提案验证过程包括下面3步：
 \begin{itemize}
-	\item PRE-PREPARE（预准备阶段）：主节点在收到请求后向所有副本节点广播与准备消息，其格式为$\langle \langle PRE-PREPARE,v,n,d \rangle_{\sigma p},m \rangle$，其中$v$是视图编号，$n$是消息序号，$d$是消息摘要，$m$为请求消息，$\sigma p$为主节点$p$的签名；
-	\item PREPARE（准备阶段）：一旦副本节点$i$接受预准备消息则进入准备阶段，同时该节点向所有副本节点发送准备消息$\langle PREPARE,v,n,d,i\rangle_{\sigma i}$。当节点$i$收到$2f$个从不同副本节点发来与$PRE-PREPARE$相匹配的$PREPARE$消息，则定义$prepared(m,v,n,i)$为真；
-	\item COMMIT（确认阶段）：当$prepared(m,v,n,i)$为真时，副本节点$i$将$\langle COMMIT,v,n,D(m),i\rangle$广播至其他副本节点，进入确认阶段。对节点$i$而言，$prepared(m,v,n,i)$为真且$i$已经接受了$2f+1$个$COMMIT$消息与$PRE-PREPARE$消息一致则定义$committed-local(m,v,n,i)$为真。而存在$f+1$个正常副本节点集合使得其中所有副本节点$i$的$prepared(m,v,n,i)$为真，则定义$committed(m,v,n)$为真。
+	\item PRE-PREPARE：主节点在收到请求后向所有副本节点广播与准备消息，其格式为$\langle \langle PRE-PREPARE,v,n,d \rangle_{\sigma p},m \rangle$，其中$v$是视图编号，$n$是消息序号，$d$是消息摘要，$m$为请求消息，$\sigma p$为主节点$p$的签名；
+	\item PREPARE：一旦副本节点$i$接受预准备消息则进入准备阶段，同时该节点向所有副本节点发送准备消息$\langle PREPARE,v,n,d,i\rangle_{\sigma i}$。当节点$i$收到$2f$个从不同副本节点发来与$PRE-PREPARE$相匹配的$PREPARE$消息，则定义$prepared(m,v,n,i)$为真；
+	\item COMMIT：当$prepared(m,v,n,i)$为真时，副本节点$i$将$\langle COMMIT,v,n,D(m),i\rangle$广播至其他副本节点，进入确认阶段。对节点$i$而言，$prepared(m,v,n,i)$为真且$i$已经接受了$2f+1$个$COMMIT$消息与$PRE-PREPARE$消息一致则定义$committed-local(m,v,n,i)$为真。而存在$f+1$个正常副本节点集合使得其中所有副本节点$i$的$prepared(m,v,n,i)$为真，则定义$committed(m,v,n)$为真。
 \end{itemize}
 
 \textcolor{gray}{预准备阶段和准备阶段确保所有正常节点对同一个视图中的请求序号达成一致。而确认阶段保证了所有正常阶段对本地确认的请求序号达成一致，及时这些请求在每个节点的确认处于不同的视图。}
 
-不难发现，在PBFT策略中，验证节点$i$集合固定并且身份公开，在其发布PREPARE消息后其决策也公开可见，因而在其发布正常COMMIT消息前存在被攻击或者贿赂可能。所以对于采用PBFT算法的系统，无法适用于Permissionless环境。
+不难发现，在PBFT策略中，验证节点为固定的集合，并且所有节点身份公开，在其发布PREPARE消息后其决策也公开可见，因而在其发布正常COMMIT消息前存在被攻击或者贿赂可能。所以对于采用PBFT算法的系统，无法适用于无授权环境。
 
 \subsubsection{无授权投票：Algorand}
-不同于PBFT，Algorand\cite{gilad2017algorand}针对Permissionless场景，其在领袖选举和交易验证中均采用了基于VRF的随机抽取策略，这里重点分析其交易验证部分。
+%无授权场景下节点会动态加入离开，同时由于节点没有身份认证，
 
-Algorand验证核心算法$BA\bigstar$如下：
+不同于PBFT，Algorand\cite{gilad2017algorand}属于无授权场景共识协议，对应地，Algorand在领袖选举和交易验证中均采用了基于VRF的随机抽取策略。这里重点分析其交易验证部分。
+
+Algorand验证的核心算法$BA\bigstar$来自于\cite{miller2016honey}，具体如下：
 \begin{itemize}
 	\item Reduction：该步骤的目标是将需要达成共识的多个区块转化为对某一特定区块或者空块二选一达成共识；
 	\item BinaryBA$\bigstar$：基于Reduction的输出，在特定区块和空块之间达成共识。在$Maxstep$轮中没有达成共识则认为网络状况出现问题。
