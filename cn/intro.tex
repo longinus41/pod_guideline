@@ -1,25 +1,42 @@
 % !TEX root = main.tex
 \section{简介}
-共识问题(Consensus Problem)是研究分布式系统中所有节点达成一致的问题，通常被定义为状态机复制（State Machine Replication），即对于所有节点均以相同顺序执行一个命令序列。而当存在恶意节点的情况下，共识被描述为拜占庭容错问题（Byzantine Fault Tolerant，BFT）\cite{pease1980reaching}。
+共识(Consensus)是布式系统中的基本性质之一，具体来说是指通过消息传递使得系统中所有节点均以相同顺序执行一个命令序列\cite{lamport1978implementation}。而在实际环境中，节点可能出错产生异常行为，或者消息无法被正确传递，使得系统无法达成一致\cite{pease1980reaching}。早期研究指出，当系统中仅有两个节点时，不存在一种容错协议使得系统达成一致\cite{akkoyunlu1975some}。1982年Lamport等人将其扩展为多节点下的容错问题，即拜占庭将军问题（Byzantine Generals Problem，BGP）\cite{lamport1982byzantine}。
 
-在区块链技术出现之前，拜占庭环境下的共识问题并没有得到广泛关注。大多数BFT算法实际上在尝试解决拜占庭将军问题（Byzantine Generals Problem，BGP）\cite{lamport1982byzantine}，即拜占庭容错问题的一个特例。在许多分布式服务中，对于发起状态更变的节点称之为领袖节点（Leader），后者一般由发起请求客户端指定或者按照某种固定算法决定\footnote{一些算法允许在领袖发生故障时进行领袖重新选举。}，所有节点对谁是领袖节点很容易达成共识。因此多数已有的共识算法不包括领袖选举或者并未强调其重要性。
+拜占庭将军问题被认为是容错性问题中最难的问题类型之一，在区块链技术出现之前，拜占庭容错并没有得到广泛关注，\textcolor{red}{TBA}。
+
+2008年匿名发布的比特币白皮书\cite{nakamoto2008bitcoin}提出了一种去中心化的账簿，其从全新的角度阐述了拜占庭环境下的共识解决思路。以比特币为代表的区块链也属于分布式系统，由于存储在这些帐簿中的价值，不良成员有巨大的经济动机去尝试造成故障，因此这类分布式系统对于拜占庭容错的需求非常高\footnote{https://medium.com/loom-network/understanding-blockchain-fundamentals-part-1-byzantine-fault-tolerance-245f46fe8419}。
+
+区块链技术的出现让拜占庭容错问题重新得到关注，而尝试解决拜占庭容错问题的共识算法也不断被提出。早期的区块链共识机制与传统的拜占庭容错算法存在较大差异，例如比特币中通过算力竞争的方式决定出块权，并且基于最长链原则实现了大规模节点的状态同步\cite{nakamoto2008bitcoin}。同时，近几年出现了许多结合经典分布式系统BFT机制的共识算法，例如Tendermint\cite{buchman2016tendermint}、Byzcoin\cite{kogias2016enhancing}等等。
+
+
+%此类问题被定义为拜占庭容错（Byzantine Fault Tolerant，BFT）问题\cite{pease1980reaching}。进一步地，论文\cite{lamport1982byzantine}给出了
+%，共识被定义为状态机复制（State Machine Replication），即对于所有。
+%而当存在恶意节点的情况下，共识被描述为拜占庭容错问题（Byzantine Fault Tolerant，BFT）。
+
+
+
+%大多数BFT算法实际上在尝试解决拜占庭将军问题（Byzantine Generals Problem，BGP），即拜占庭容错问题的一个特例。
 
 %传统分布式服务中\cite{castro1999practical}，
 %领导者的选取由发起请求的客户端（client）指定或者由固定算法决定(例如$mod\ n$)，
 
-区块链技术的出现让共识重新得到关注，2008年发布的比特币白皮书\cite{nakamoto2008bitcoin}阐述了拜占庭环境下的共识解决思路，但其与传统的BFT算法存在较大差异。具体地，比特币中通过算力竞争的方式决定出块权（即领袖节点的选举），并且使用最长链原则实现了大规模节点的状态同步。
 
-作为区块链的核心技术，共识机制涉及到密码学、分布式系统甚至是经济学等多个领域。可以发现目前已有的共识算法或者协议，其实现机制甚至是系统描述千差万别，这是因为其背后设计者的研究背景各异。因此在设计出合理的共识机制之前，更重要的是解决如下问题：
+区块链系统的共识机制涉及到众多领域，包括密码学、分布式系统甚至是经济学等。我们发现各种区块链共识算法，其实现机制千差万别，究其原因是其设计者的研究背景各异。因此在设计出合理的共识机制之前，我们需要解决如下问题：
 
 \begin{itemize}
-	\item 本质上共识机制需要解决什么样的问题？
+	\item 区块链上的共识机制需要解决什么样的问题？
 	\item 理想的共识机制需要满足什么样的要求？
-	\item 现阶段我们能否满足所有上述需求？如果不能，如何取舍？
+	\item 现阶段共识协议能否满足所有上述需求？如果不能，如何取舍？
 \end{itemize}
 
-首先我们回答第一个问题，广义上的区块链共识需要解决两个问题，\textcolor{red}{即谁负责出块和出现分叉如何解决}。对应地，区块链共识包括\textbf{领袖选举（Leader Election）}和\textbf{交易验证}（Transaction Verification）两部分\cite{eyal2016bitcoin,kogias2016enhancing}。尽管在一些研究中两者没有被严格划分并且存在相关性\cite{gilad2017algorand}，但我们认为将领袖选举和交易验证的解耦思想有助于我们理解区块链共识并且在此基础上设计更加合理的共识算法。
+这里我们先尝试回答第一个问题。作为广义上的分布式系统，区块链的共识也是为了解决拜占庭容错问题。对应到区块链的流程上通俗地来说，共识协议是在解决\textcolor{red}{“谁负责出块”和“出现分叉如何解决”}这两个问题\cite{ultrain2019}，一些研究将上述两个问题定义为\textcolor{red}{领袖选举（Leader Election）}和\textcolor{red}{交易验证（Transaction Verification）}\cite{kogias2016enhancing,gilad2017algorand,eyal2016bitcoin}。
+尽管在有些研究中两者没有被严格划分并且存在相关性\cite{gilad2017algorand}，但将领袖选举和交易验证解耦有助于我们理解区块链共识并且在此基础上设计合理的共识算法。
 
-本文旨在简单介绍区块链共识问题，尤其是领袖选举和交易验证，在此基础上给出相应的分析，从而为后续的共识设计提供指导。
+本文的第二章简单介绍现有的区块链共识工作；第三章给出了区块链共识涉及到的系统模型。在此基础之上，第四章介绍了领袖选举的设计思路；第五章介绍了交易验证的设计思路，即第四章和第五章分别从共识的两个子问题回答了上述后两个问题。
+
+需要注意，本文的目的在针对区块链共识协议提供设计指导，而并非完整的共识机制设计方案。
+
+%本文旨在简单介绍区块链共识问题，尤其是领袖选举和交易验证，在此基础上给出相应的分析，从而为后续的共识设计提供指导。
 
 %即拜占庭容错问题（Byzantine Fault Tolerant，BFT）\cite{pease1980reaching}的特例。
 %通常针对BGP的算法往往。

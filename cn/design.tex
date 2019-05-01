@@ -4,96 +4,160 @@
 
 \label{sec:leader_election}
 \subsection{基础}
-在传统分布式系统\cite{lamport2001paxos,castro1999practical}中负责发起状态更变请求的节点被定义为主节点(Primary)，接受并验证请求的为副本节点（Backup）。而在区块链系统中，所有参与打包区块以及验证区块的节点，统称为矿工（Miner）\footnote{对于只参与同步并验证区块而不进行出块的节点，也称之为全量节点。}。为不引起混淆，后文统一将执行领袖选举协议的节点称之为提案者（Proposal），而选举具有出块权限的节点称之为领袖（Leader）。
+
 
 首先，我们给出领袖选举的相关定义。
 \begin{definition}
-（提案） 对于提案者$i$，其提案操作表示为函数$M_i(Tx,B',\zeta_i)$，其中$Tx$为待验证交易集合，$B'$为某已有区块，$\zeta_i$为提案参数。$M_i(Tx,\zeta_i)\in\{B,\bot\}$。
+（领袖选举协议$\Pi$） 对于参与出块的节点$p_i\in P$\footnote{为不是一般性，此处$P$可以为有限或无限集合。}，在时刻$t$执行函数$M_i$，$M_i$的输入为$(Tx,B',\zeta_i)$，其中$Tx$为待验证交易集合，$B'$为某已知区块，$\zeta_i$为节点$p_i$的选举参数。$M_i$的输出$\in\Omega=\{B,\bot\}$，样本空间$\Omega$为非空集合，当$M_i=\bot$时，节点$p_i$无法出块；当$M_i=B$时，节点$p_i$成为出块节点，并且提案区块$B$成为$B'$的后置区块，即$\hbar_B=\hbar_{B'}+1$。
 \end{definition}
 
-%对于提案操作$M$，我们定义样本空间$\Omega$，
+通常来说，$M_i(Tx.B',\zeta)=B$的必要条件是待验证交易组$Tx$和区块$B'$有效。对于UTXO模型和Account模型，交易组$Tx$有效性验证方式不同，而区块$B'$的有效性确定也与共识机制相关，本章不做详细介绍。
+
+根据选举协议是否依赖于物理算力，目前大致有PoW和PoS两种选举机制。
+
+PoW协议最早由\cite{dwork1992pricing}提出，被用于防止拒绝服务攻击，后被比特币应用于出块节点选举\cite{nakamoto2008bitcoin}。我们首先给出PoW领袖选举机制$\Pi_w$的一般性描述。
 
 \begin{definition}
-（验证） 对于提案者$i$，其验证操作表示为函数$V_i(B,t_i)$，其中$B$为待验证区块，$t_i$为提案者$i$的本地时间。$V_i(B,t_i)\in\{0,1\}$。
-\end{definition}
-
-\begin{definition}
-\label{def:leader_election}
-（领袖选举协议$\Pi$） 对于提案者集合$N$\footnote{$N$可以为有限或者无限集合。}，提案者$i\in N$在$Tx$和$B'$不为空的情况下，执行提案操作$M_i$，若输出为$B$则将其广播；同时提案者$j \in N$在收到区块$B$后执行验证操作$V_j$。对于提案者$i\in N$，满足$\exists j\in N,M_i=B\wedge V_j=1$时，提案者$i$成为领袖。
-
-%所有运行$\Pi$的提案者\textcolor{gray}{异步地？}执行提案操作$M$和验证操作$V$。其中$M$输入为$(Tx,B',\epsilon)$，输出$\in\{B,\bot\}$，$Tx$为待验证交易集合，$h(B^{\prec})$即上个区块$B^{\prec}$的哈希值，$\epsilon$为竞选参数。$V$输入为$B$，输出$\in\{0,1\}$。当且仅当$M=B \wedge V=1$时，
-\end{definition}
-
-
-
-通常而言，我们认为领袖选举机制需要满足以下性质：
-
-\begin{itemize}
-  \item 随机性：提案者在执行提案操作前无法预知自己或者他人是否会成为领袖。
-  \item 可验证：TBC%在基于$B$上一个区块$B'$的有效性下，通过$B$本身\textcolor{red}{以及全网共享信息？}可验证$B$的有效性；
-  %\item 合理采样率（Reasonable Sampling） 
-\end{itemize}
-
-不难发现选举协议$\Pi$的随机性来自于提案操作$M$的随机性，这里我们首先给出$\Pi$随机性的数学描述。我们将时间表示为有序的离散\footnote{当$T$为连续集合时，该定义仍然可描述，这里简单采用离散集合描述。}集合$T$，因此提案者$i$的提案可以表示为随机过程$\mathbb{X}=\{X(i,t),t\in T\}$。%其中$\Omega$为提案事件的样本空间，
-其中$X(i,t)$表示为在$t$内$M_i$输出不为$\bot$的概率。根据数学定义\cite{van2013introduction}，如果一个随机过程在某个时刻的取值在这个时刻之前就可能可以知道（可测），则此随机过程称之为可预测过程（Predictable Process）。
-%进一步地，我们定义$M$的可预测性如下：
-
-\begin{definition}
-（提案$n$阶可预测性） 在$t$时刻，如果已知$Tx,B',\zeta_i$，可确定$t+1$至$t+n$时刻$M_i$的取值，但无法确定$t+n+1$时刻$M_i$的取值，则$M$具有$n$阶可预测性。
-\end{definition}
-
-对应地，我们给出不可预测性的定义。
-
-\begin{definition}
-（提案不可预测性） 在$t$时刻，如果已知$Tx,B',\zeta_i$，不可确定$t+1$时刻$M_i$的取值，则$M$具有不可预测性。
-\end{definition}
-
-
-%此外，在一般情况下每个选举出的提案者一次只能发布一个区块\footnote{Bitcoin-NG支持提案者多次出块，但单次出块数存在上限，因此可以认为出块频率仍与提案者选举频率相关}。受限于网络传输延迟[]，出块频率不应过高，防止产生大量分叉。
-
-当选举协议可预测时，会出现若干潜在问题。例如自私挖矿（Selfish Mining）\cite{eyal2018majority}不需要承担风险因而变得更加普遍[]，并且节点在成为领袖前可能存在消极运行的问题（"last actor" problem）\cite{hanke2018difinity}。更进一步地，目前许多链上DApp（例如博彩）的随机性来自于出块随机性，当出块可预测时，此类DApp则会有被操控风险。
-
-
-此外，网络中的节点在接受到区块时需要首先验证区块的有效性，因此合法的区块需要具有有效性的特征。
-
-\begin{property}
-基于区块$B$本身即可验证其有效性，即                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   区块$B$的有效性仅与交易组$Tx_B$、$B^{\prec}$和$\varphi_B$相关。	
-\end{property}
-
-对于UTXO模型和Account模型，交易组的有效性验证方式不同，这里不做过多展开。对于$\varphi_B$，根据领袖选举协议的不同其有效性验证方式也有所不同，具体分析见后续章节。在保证$Tx_B$和$B\prec$有效性的情况下，区块$B$的有效性依赖于其出块证明$\varphi_B$的有效性。
-
-
-
-\subsection{PoW协议}
-我们首先给出基于PoW的领袖选举机制相关分析。
-
-\begin{definition}
-（选举协议$\Pi_w$） 基于PoW机制的领袖选举协议，有$\epsilon=\langle d,t,nonce,Mr(Tx),\tau \rangle$，且：\\
+（选举协议$\Pi_w$） 基于PoW机制的领袖选举协议，有$\zeta=\langle x,c,d \rangle$，其中$x$为一个临时随机数，$c$表示挑战问题，$d$为正实数表示困难程度，且：\\
 \begin{equation}
 \label{eq:pow}
-M(Tx,B',\epsilon)=\begin{cases}
-B & \text{ if } h(d,t,h(B'),nonce,Mr(Tx))<\tau \\ 
+M_i(Tx,B',\zeta_i)=M_i(Tx,B',c,x,d)=\begin{cases}
+B & \text{ if } h(c,x)<\frac{k}{d} \\ 
 \bot & \text{ otherwise}
 \end{cases}
 \end{equation}
-其中$d\in N^+$表示困难程度，通常会随着时间动态调整,$\tau$表示目标值，$nonce$为一个临时随机数，$t$为时间戳，$h(\cdot)$表示某种哈希函数，例如Bitcoin中采用的SHA-256。对于提案区块$B$，有$t_B=t$，$Tx_B=Tx$，$Pre(B)=h(B')$以及$V(B)=\epsilon$。
+$h(\cdot)$表示某种哈希函数，$k$为某个正整数。
 \end{definition}
 
-\begin{corollary}
-$\Pi_w$满足伪随机性。	
-\end{corollary}
+以比特币为例，挑战问题$c$为区块$B$的区块头，$h(c,x)=SHA256(SHA256(c|x))$且$k=2^{224}$，即函数$M=B$的条件是$SHA256(SHA256(c|x))<\frac{2^{224}}{d}$。
 
-\begin{proof}
-根据公式\ref{eq:pow}，Pr$(M(Tx,B',\epsilon)=B)=$Pr$(h(d,t,h(B')|nonce,Mr(Tx))<\tau)$，$h(\cdot)$具有伪随机性\footnote{在给定$y$情况下，目前没有比穷举更好的算法来寻找$x$使其满足$h(y|x)<c$。}，TBC%即提案者成为领袖的随机性来自于$h$函数的随机性，。	
-\end{proof}
+目前涌现出许多基于PoS的选举协议\cite{gilad2017algorand,david2018ouroboros,hanke2018difinity}，虽然这些协议实现机制略有不同，但本质上都是基于伪随机函数实现了出块节点的随机选举。在此我们给出PoS选举协议$\Pi_{s}$的一般描述。
 
-\begin{corollary}
-$\Pi_w$具有可验证性。	
-\end{corollary}
+\begin{definition}
+（选举协议$\Pi_{s}$） 基于PoS机制的领袖选举协议，有$\zeta_i=\langle s_i(\hbar_{B'}),\delta \rangle$，其中$s_i(\hbar_{B'})$表示在已有区块$B'$的高度$\hbar_{B'}$上节点$p_i$的状态\footnote{为防止伪造，此处更为严谨的表示是$SIG_{sk_i}(s_i(\hbar_{B'}))$，即带有签名的状态，这里简单表示为$s_i(\hbar_{B'})$}，$\delta$表示可验证伪随机数，且
 
-\begin{proof}
-对于提案区块$B$，有$V(B)=\epsilon$，对于其他提案者已知$nonce$  TBC
-\end{proof}
+%（选举协议$\Pi_{\bar{w}}^\alpha$） 对于提案函数$M_i(Tx,B',\zeta_i)$，有$\zeta_i=\langle s_i,t_i,\delta \rangle$，其中$s_i$表示提案者$i$的状态（即权益），$t_i$为$i$的本地时间，$\delta$表示某个伪随机数，并且
+\begin{equation}
+\label{eq:pos}
+M_i(Tx,B',\zeta_i)=M_i(Tx,B',s_i(\hbar_{B'}),\delta)=\begin{cases}
+B & \text{ if } g(s_i(\hbar_{B'}),\delta)=0 \\ 
+\bot & \text{ otherwise}
+\end{cases}
+\end{equation}
+$g(\cdot)$表示\textcolor{red}{某种}函数。
+\end{definition}
+%对于提案区块$B$，$Tx_B=Tx$，$B^{\prec}=B'$（即$h(B^\prec)=h(B')$），$\varphi_B=\langle t_B,s_i,sig_i,\delta\rangle$，其中$t_B=t_i|_{M_i=B}$，sig。
+
+%对于验证操作$V_j$，具体地：
+%\begin{equation}
+%\label{eq:pos_validation}
+% V_j(B,t_j)=\begin{cases}
+%1 & \text{ if } V({B^\prec},t_j)=1,t_j>t_B,g(s_i,\delta,t_B)=0,sig_i... \\ 
+%0 & \text{ otherwise}
+%\end{cases}
+%\end{equation}
+%\end{definition}
+
+执行协议$\Pi_{s}$的出块节点需要提供在当前高度的账户权益证明（即$s_i(\hbar_{B'})$），当满足条件$g(s_i(\hbar_{B'},\delta)=0$时，则可以成为出块节点。
+
+\subsection{性质分析}
+%本章给出选举协议需要满足特性的分析。
+论文\cite{brown2018formal}认为出块操作需要满足（伪）随机性，即节点在执行出块操作前无法预知自己或者其他节点是否会成为出块节点。当出块行为可以预知时，会导致一些安全问题，例如自私挖矿（Selfish Mining）\cite{eyal2018majority}问题。此外，节点在获得出块权之前可能采取消极运行策略\cite{hanke2018difinity}。更进一步地，目前许多链上DApps（例如博彩应用）的随机性往往来自于出块随机性，因此当出块可预测时，此类DApps则会有被操控风险\footnote{https://www.bitguai.com/block/news/36731.html}。
+
+同时论文\cite{sompolinsky2015secure}指出，由于现有网络的限制，出块频率过高会引起更多的链分叉（Fork），从而降低系统的安全性。
+
+因此，我们认为选举协议需要满足如下性质：
+
+\begin{itemize}
+	\item 不可预测性：任何节点在执行出块操作前无法预知自己或者其他节点是否会成为出块节点；
+	\item 合理出块频率：\textcolor{red}{整个系统的出块频率稳定，不会随着节点规模以及系统状态发生变化。}
+\end{itemize}
+
+
+%我们将时间表示为有序的离散\footnote{当$T$为连续集合时，该定义仍然可描述，这里简单采用离散集合描述。}集合$T$，因此节点$i$的出块可以表示为随机过程$\mathbb{X}=\{X(i,t),t\in T\}$。其中$X(i,t)$表示节点$i$在$t$时刻$M$的输出。根据定义\cite{van2013introduction}，如果一个随机过程在某个时刻的取值在这个时刻之前就可能可以知道（可测），则此随机过程称之为可预测过程（Predictable Process），反之则为不可预测过程。因此，当$\mathbb{X}$为不可能预测过程时，出块操作满足（伪）随机性。
+
+%对于提案操作$M$，我们定义样本空间$\Omega$，
+
+%\begin{definition}
+%（验证） 对于提案者$i$，其验证操作表示为函数$V_i(B,t_i)$，其中$B$为待验证区块，$t_i$为提案者$i$的本地时间。$V_i(B,t_i)\in\{0,1\}$。
+%\end{definition}
+
+
+%\begin{definition}
+%\label{def:leader_election}
+%（领袖选举协议$\Pi$） 节点$i\in P$在$Tx$和$B'$不为空的情况下\footnote{$P$可以为有限或者无限集合。}，执行提案操作$M_i$，若输出为$B$则将其广播；同时提案者$j \in N$在收到区块$B$后执行验证操作$V_j$。对于提案者$i\in N$，满足$\exists j\in N,M_i=B\wedge V_j=1$时，提案者$i$成为领袖。
+%\end{definition}
+
+%通常而言，我们认为领袖选举机制需要满足以下性质：
+
+
+
+
+%\begin{itemize}
+ % \item 随机性：提案者在执行提案操作前无法预知自己或者他人是否会成为领袖。
+  %\item 可验证：TBC%在基于$B$上一个区块$B'$的有效性下，通过$B$本身\textcolor{red}{以及全网共享信息？}可验证$B$的有效性； 
+%\end{itemize}
+
+%不难发现选举协议$\Pi$的随机性来自于提案操作$M$的随机性，
+
+%这里我们给出$\Pi$随机性的数学描述。
+%其中$\Omega$为提案事件的样本空间，
+
+%进一步地，我们定义$M$的可预测性如下：
+
+%类似于\cite{brown2018formal}，我们给出协议不可预测性的完整定义。
+
+%\begin{definition}
+%（$\Pi$不可预测性） 对于执行协议$\Pi$的节点$i\in N$，在$t$时刻，如果已知$Tx,B',\zeta_i$，不可确定$X(i,t+1)$，则称协议$\Pi$具有不可预测性。
+%\end{definition}
+
+%一般情况下，对于不同节点$i$，$j$，有$\zeta_i\neq \zeta_j$。
+
+%对应地，我们进一步给出可预测性的定义。
+
+%\begin{definition}
+%（$\Pi$本地可预测性） 对于执行协议$\Pi$的节点$i\in N$，在$t$时刻，如果已知$Tx,B',\zeta_i$，可以确定$t+1$时刻节点$i$的$M$取值，但不可确定其他节点$M$的取值，则称协议$\Pi$具有本地可预测性。
+%\end{definition}
+
+%\begin{definition}
+%（$\Pi$全局可预测性） 对于执行协议$\Pi$的节点$i\in N$，在$t$时刻，如果已知$Tx,B',\zeta_i$，可以可确定$t+1$时刻$M_j$的取值，其中$j\in N$，则称协议$\Pi$具有全局可预测性。
+%\end{definition}
+
+%此外，在一般情况下每个选举出的提案者一次只能发布一个区块\footnote{Bitcoin-NG支持提案者多次出块，但单次出块数存在上限，因此可以认为出块频率仍与提案者选举频率相关}。受限于网络传输延迟[]，出块频率不应过高，防止产生大量分叉。
+
+
+
+%从而导致所谓的“最后”（"last actor" problem）。
+
+%
+
+
+%此外，网络中的节点在接受到区块时需要首先验证区块的有效性，因此合法的区块需要具有有效性的特征。
+
+%\begin{property}
+%基于区块$B$本身即可验证其有效性，即                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                   区块$B$的有效性仅与交易组$Tx_B$、$B^{\prec}$和$\varphi_B$相关。	
+%\end{property}
+
+\subsubsection{PoW协议}
+
+%$\Pi_w$具有不可预测性，
+首先我们分析基于PoW的选举协议$\Pi_w$，根据公式\ref{eq:pow}，
+%Pr$(M(Tx,B',\zeta)=B)=$Pr$(h(c,x)<\frac{k}{d})$，
+对于哈希函数$h(\cdot)$，在给定$c$情况下，目前没有比穷举更好的算法来寻找$x$使其满足$h(c|x)<\frac{k}{d}$\cite{gilbert2003security}。即在任意时刻$t$无法预测$t+1$时刻$M$的输出，因此$\Pi_w$具有不可预测性。对于PoW协议，其挑战问题$c$的选择对不可预测性有非常大的影响，更详细的分析见附录\ref{ch:puzzle}。
+
+%即提案者成为领袖的随机性来自于$h$函数的随机性，。
+
+在给定$c$的情况下，Pr($M=B$)与困难程度$d$成反比。以比特币为例，系统会统计每2016个区块的总共出块时间来估计全网算力，从而动态调整$d$。因此采用PoW的选举协议可以保证合理的出块频率。
+
+此外，目前有许多研究分析了针对PoW协议的攻击，更详细的介绍见附录\ref{ch:attack}。
+
+%\begin{corollary}
+%$\Pi_w$具有可验证性。	
+%\end{corollary}
+
+%\begin{proof}
+%对于提案区块$B$，有$V(B)=\epsilon$，对于其他提案者已知$nonce$  TBC
+%\end{proof}
 
 
 
@@ -121,55 +185,44 @@ $\Pi_w$具有可验证性。
   %\end{algorithmic}
 %\end{algorithm}
 
+\subsubsection{PoS协议}
 
-\subsection{非PoW协议}
-目前基于非PoW的领袖选举协议主要是基于权益的领袖选举，在此我们给出几种具有代表性的非PoW选举协议。
+然后我们分析基于PoS的选举协议$\Pi_s$，根据公式\ref{eq:pos}，%Pr$(M(Tx,B',\zeta)=B)=$Pr$(g(s_i,\delta)=0)$。
+在给定$s_i$和函数$g$的情况下，$\Pi_s$的不可预测性来自于$\delta$的不可预测性。%\footnote{例如在Algorand中，$g(\cdot)$等价于计算$VRF_{sk_i}(\delta)$得到某个hash值是否位于某个区间内，区间大小随$s_i$单调递增。}。
+通常可验证随机数$\delta$来自于当前系统状态$\mathcal{L}(\hbar)$，例如\cite{gilad2017algorand}中的随机种子来自于上一个已确定的区块；\cite{david2018ouroboros}的随机种子来自于上个朝代（Epoch）的创世块（Genesis Block）。对于PoS协议，其可验证随机数$\delta$对不可预测性有非常大的影响，更详细的分析见附录\ref{ch:random_number}。
 
-\begin{definition}
-（选举协议$\Pi_{\bar{w}}^\alpha$） 对于提案函数$M_i(Tx,B',\zeta_i)$，有$\zeta_i=\langle s_i,t_i,\delta \rangle$，其中$s_i$表示提案者$i$的状态（即权益），$t_i$为$i$的本地时间，$\delta$表示某个伪随机数，并且
-\begin{equation}
-\label{eq:pos}
-M_i(Tx,B',\zeta_i)=\begin{cases}
-B & \text{ if } g(s_i,\delta,t_i)=0 \\ 
-\bot & \text{ otherwise}
-\end{cases}
-\end{equation}
-$g(\cdot)$表示\textcolor{red}{某种}函数。对于提案区块$B$，$Tx_B=Tx$，$B^{\prec}=B'$（即$h(B^\prec)=h(B')$），$\varphi_B=\langle t_B,s_i,sig_i,\delta\rangle$，其中$t_B=t_i|_{M_i=B}$，sig。
 
-对于验证操作$V_j$，具体地：
-\begin{equation}
-\label{eq:pos_validation}
- V_j(B,t_j)=\begin{cases}
-1 & \text{ if } V({B^\prec},t_j)=1,t_j>t_B,g(s_i,\delta,t_B)=0,sig_i... \\ 
-0 & \text{ otherwise}
-\end{cases}
-\end{equation}
-\end{definition}
+%此外，选举协议也需要满足合理的出块频率。论文\cite{sompolinsky2015secure}指出，由于现有网络的限制，出块频率过高会引起更多的链分叉（Fork），从而降低系统的安全性。
 
-可以看出，执行协议$\Pi^{\alpha}_{\bar{w}}$的提案者需要提供某个账户的权益证明（即$s_i$），当提案者的当前时间满足条件$g(s_i,\delta,t_B)=0$时，则可以成为领袖出块。
+%系统的出块频率由函数$g$确定。
+在给定$\delta$和函数$g$的情况下，Pr($M_i=B$)与用户状态$s_i$相关。例如\cite{gilad2017algorand}中Pr($M_i=B$)与$\rho$正相关，$\rho$为节点$p_i$的资产占总资产的比例。一般情况下，出块节点的出块频率不会随着其资产增加而无限上升，但可能使其连续出块，而产生某些安全问题\cite{david2018ouroboros}。
 
-\begin{corollary}
-$\Pi_{\bar{w}}^\alpha$具有$1$阶可预测性。	
-\end{corollary}
 
-\begin{proof}
- 对提案者$i$，在$t=n$时刻，已知$Tx$，$B'$和$\zeta_i=\langle s_i,t,\delta\rangle$，$X(i,t)$=Pr$(g(s_i,\delta,n)=0)\rightarrow[0,1]$。因为$g$为确定性函数，令$t=n+1$，可以求得$g(s_i,\delta,n+1)$，即在$t$时刻给定输入$Tx$，$B'$和$\zeta_i$，可以预测$X(i,t+1)$。
-\end{proof}
 
-\begin{corollary}
-$\Pi_{\bar{w}}^\alpha$具有$\infty$阶可预测性。	
-\end{corollary}
+%\begin{corollary}
+%$\Pi_{\bar{w}}^\alpha$不满足不可预测性。	
+%\end{corollary}
 
-\begin{proof}
-对提案者$i$，在$t=n$时刻，已知$Tx$，$B'$和$\zeta_i=\langle s_i,t,\delta\rangle$，$X(i,t)$=Pr$(g(s_i,\delta,n)=0)\rightarrow[0,1]$。令$t=n+m$，可以求得$lim$Pr$(g(s_i,\delta,n)=0)$。即在$t$时刻给定输入$Tx$，$B'$和$\zeta_i$，可以预测$X(i,t+m)_{m\rightarrow \infty}$。
-\end{proof}
+%\begin{proof}
+% 对节点$i$，在$t=n$时刻，已知$Tx$，$B'$和$\zeta_i=\langle s_i,t,\delta\rangle$，$X(i,t)$=Pr$(g(s_i,\delta,n)=0)\rightarrow[0,1]$。因为$g$为确定性函数，令$t=n+1$，可以求得$g(s_i,\delta,n+1)$，即在$t$时刻给定输入$Tx$，$B'$和$\zeta_i$，可以预测$X(i,t+1)$。
+%\end{proof}
 
-可以发现最原始的协议不具备不可预测性，我们基于此做部分改动。
+%\begin{corollary}
+%$\Pi_{\bar{w}}^\alpha$具有$\infty$阶可预测性。	
+%\end{corollary}
 
-\begin{definition}
-（领袖选举协议$\Pi^\beta_{\bar{w}}$） 对于提案函数$M_i(Tx,B',\zeta_i)$，有$\zeta_i=\langle s_i,t_i,\delta \rangle$，其中$s_i$表示提案者$i$的状态（即权益），$t_i$为$i$的本地时间，$\delta$表示某个伪随机数，并且$\delta$更新周期为$\Delta$。
-\end{definition}
+%\begin{proof}
+%对提案者$i$，在$t=n$时刻，已知$Tx$，$B'$和$\zeta_i=\langle s_i,t,\delta\rangle$，$X(i,t)$=Pr$(g(s_i,\delta,n)=0)\rightarrow[0,1]$。令$t=n+m$，可以求得$lim$Pr$(g(s_i,\delta,n)=0)$。即在$t$时刻给定输入$Tx$，$B'$和$\zeta_i$，可以预测$X(i,t+m)_{m\rightarrow \infty}$。
+%\end{proof}
 
-\begin{corollary}
-$\Pi_{\bar{w}}^\beta$具有$\Delta$阶可预测性。	
-\end{corollary}
+%可以发现最原始的协议不具备不可预测性，我们基于此做部分改动。
+
+%\begin{definition}
+%（领袖选举协议$\Pi^\beta_{\bar{w}}$） 对于提案函数$M_i(Tx,B',\zeta_i)$，有$\zeta_i=\langle s_i,t_i,\delta \rangle$，其中$s_i$表示提案者$i$的状态（即权益），$t_i$为$i$的本地时间，$\delta$表示某个伪随机数，并且$\delta$更新周期为$\Delta$。
+%\end{definition}
+
+%\begin{corollary}
+%$\Pi_{\bar{w}}^\beta$具有$\Delta$阶可预测性。	
+%\end{corollary}
+
+

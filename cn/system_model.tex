@@ -3,9 +3,15 @@
 本章节主要给出区块链共识涉及到的相关定义，在此基础之上我们给出相关的评价指标。
 
 \subsection{网络模型}
-分布式系统中，节点之间的通信方式主要为消息传递（Message Passing）。根据网络传输延迟的设定，可以将系统划分为同步网络（Synchronous Network）和异步网络（Asynchronous Network）。在同步网络模型下，所有节点的消息传输延迟不会超过某个阈值；而在异步网络中，节点间的消息传输延迟可以是任意值。\textcolor{blue}{根据FLP定理[]，异步网络环境下，只要存在一个拜占庭节点则BGP问题无解。}
+分布式系统中，节点之间的通信方式主要为消息传递（Message Passing）。根据网络传输延迟的设定，可以将系统划分为同步网络（Synchronous Network）和异步网络（Asynchronous Network）。在同步网络模型下，所有节点的消息传输延迟不会超过某个阈值；而在异步网络中，节点间的消息传输延迟可以是任意值。\textcolor{blue}{根据FLP定理\cite{fischer1982impossibility}，异步网络环境下，只要存在一个拜占庭节点则BGP问题无解。}
 
 一种看法是，由于实际网络一定存在传输延迟，因此不存在能够在能够保证容错的共识算法。客观来看，该观点没有错误，但过于悲观。目前所有拜占庭容错的共识算法均是基于同步网络模型，一些更为宽松的模型允许网络中除领袖以外节点之间的通信可以为异步网络，后者称之为“弱终止假设”（或“半异步网络”）\cite{castro1999practical}。在本文中，我们基于同步网络模型讨论共识算法。
+
+在一些传统分布式系统中负责发起状态更变请求的节点被定义为主节点(Primary)，接受并验证请求的为副本节点（Backup）\cite{lamport2001paxos,castro1999practical}。在一些区块链系统中，所有参与打包区块以及验证区块的节点，统称为矿工（Miner），而在另一些系统中则区分为出块节点、验证节点和监听节点\cite{ultrain2019}。
+
+论文\cite{howard2019consensus}提出了更具有一般性的分布式共识系统节点模型，即系统中分为提案节点（Proposer）和接受节点（Acceptor）。本文采用同样设定，对于有$n$个节点的系统$U$，将接受节点集合表示为$A=\{a_1,a_2,\cdots\}$，其中$A\subseteq U$且$|A|=n_a$；对应地将提案节点结合表示为$P=\{p_1,p_2,\cdots\}$，其中$P\subseteq U$且$|P|=n_p$。
+
+%执行领袖选举协议的节点称之为提案者（Proposal），而选举具有出块权限的节点称之为领袖（Leader）。
 
 \subsection{时钟模型}
 
@@ -15,9 +21,11 @@
 
 综上，我们可以给出更为准确的一致性描述：所有节点对于提案区块的发生顺序达成一致。因而区块链共识实现的一致性通常是指分布式系统中的顺序一致性（Sequntial Consistency）而并非线性一致性（Linearizable Consistency）\footnote{而对于例如比特币这类的系统，其只能保证更弱的最终一致性。}。
 
-在许多共识算法中也出现了基于NTP（Network Time Protocol）实现的本地物理时钟\cite{gilad2017algorand}，通常而言，这类时钟一般用于本地执行算法的行为判断（例如超时），而并不会用于描述事件。
+%在许多共识算法中也出现了基于NTP（Network Time Protocol）实现的本地物理时钟\cite{gilad2017algorand}，通常而言，这类时钟一般用于本地执行算法的行为判断（例如超时），而并不会用于描述事件。
 
 简而言之，后文中区块高度$\hbar$属于逻辑时钟，而$t$属于本地物理时钟。
+
+%\subsection{节点}
 
 \subsection{数据模型}
 以Bitcoin为代表的交易网络主要采用了未交易输出模型（Unspent Transaction Outputs Model，UTXO Model）；而以Ethereum为代表的区块链系统采用了账户模型（Account Model）。通常来说，账户模型设计更接近于传统记账系统（例如银行），并且支持图灵完备智能合约（Turing-complete Smart Contract），因此这里我们基于账户模型给出相关定义，当然，UTXO模型理论上同样适用于我们的共识设计。
@@ -28,14 +36,9 @@
 （账户）一个账户$i$拥有一个私钥（Secret Key）$sk_i$和基于私钥构建的公钥（Public Key）$pk_i$。一个账户$i$可以表示为多元组$\langle pk_i,sk_i,s_i(bh)\rangle$，其中$s_i(\hbar)$表示在区块高度$\hbar$时用户$i$的状态\footnote{在交易网络中，用户状态即用户余额，随着智能合约和用户行为的多样化，这里统一称之为用户状态}。
 \end{definition}
 
-因此在任意区块高度$\hbar$，我们也可以描述系统的状态。
 
 \begin{definition}
-（系统状态）系统状态$S(\hbar)$定义为在$\hbar$时系统中所有账户状态的集合，即$S(\hbar)=\{s_1(\hbar),...,s_n(\hbar)\}$。
-\end{definition}
-
-\begin{definition}
-（交易） 交易描述了系统的状态更变，具体地来说，一个交易包含交易发起账户$i$和接受账户$j$的状态更变。交易表示为$tx_k=\langle s_i(\hbar),s_i(\hbar'),s_j(\hbar),s_j(\hbar')\rangle$，其中$s_i(\hbar)$，$s_j(\hbar)$表示交易发生前账户的状态，$s_i(\hbar')$，$s_j(\hbar')$表示交易发生后账户的状态\footnote{这里假设交易发生在一对账户间，对于多对多的交易可以转换为多笔交易}，并且$\hbar \neq \hbar'$。
+（交易） 交易描述了一组用户的状态更变\footnote{这里假设交易发生在一对账户间，对于多对多的交易可以转换为多笔交易}，具体地来说，一个交易包含交易发起账户$i$和接受账户$j$的状态更变。交易表示为$tx_k=\langle s_i(\hbar),s_i(\hbar'),s_j(\hbar),s_j(\hbar')\rangle$，其中$s_i(\hbar)$，$s_j(\hbar)$表示交易发生前账户的状态，$s_i(\hbar')$，$s_j(\hbar')$表示交易发生后账户的状态，并且$\hbar \neq \hbar'$。
 \end{definition}
 
 需要注意的是，交易也可能使账户状态不发生变化，即$s_i(\hbar)=s_i(\hbar')$或者$s_j(\hbar)=s_j(\hbar')$。
@@ -44,11 +47,19 @@
 
 \begin{definition}
 \label{def:block}
-（区块） 区块是一个数据结构，一个区块$B$包含了一组交易$Tx_B=\{tx_1,\dots,tx_n\}$，一个指向上一个区块的引用$h(B^{\prec})$，出块者的证明$\varphi_B$，和区块高度$\hbar_B$。其中$B^{\prec}$表示$B$所指向的前置区块，$\hbar_B=\hbar_{B^{\prec}}+1$，$h(\cdot)$表示某种哈希函数。
+（区块） 区块是一个数据结构，一个区块$B_{\hbar}$包含了一组交易$Tx=\{tx_1,\dots,tx_n\}$，区块头$h(B_{\hbar})$。%其中一个指向上一个区块的引用$h(B_{\hbar-1})$，$h(\cdot)$表示哈希函数。
 \end{definition}
 
 理论上，一个区块内部可能存在多个交易修改相同的账户状态，此时这些交易在区块内部的顺序由负责打包区块的节点决定，通常会依据交易自带的时间戳。
 
-\subsection{评价指标}
-对共识算法可以从很多方面进行评价，例如经常被提及的每秒交易数（Transactions per second，TPS）以及更为抽象的安全性。
+因此在任意区块高度$\hbar$，我们可以描述系统的状态。
+
+\begin{definition}
+（系统状态）系统状态$\mathcal{L}(\hbar)$定义为在$\hbar$时，所有已经验证的区块记录的集合，即$\mathcal{L}(\hbar)=\{B_1,B_2,\dots,B_{\hbar}\}$。
+\end{definition}
+
+不同共识机制的验证区块策略不同，具体见第\ref{sec:tx_verification}章。
+
+%\subsection{评价指标}
+%对共识算法可以从很多方面进行评价，例如经常被提及的每秒交易数（Transactions per second，TPS）以及更为抽象的安全性。
 
