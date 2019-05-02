@@ -33,7 +33,7 @@
 %在分布式系统中，状态机复制可以有效解决多服务器之间的数据一致性问题\cite{schneider1990implementing}。最为经典的Paxos协议实现了宕机容错（crash-fault tolerant）的一致性算法\cite{lamport2001paxos}，其被广泛应用于数据库备份和域名服务等领域\cite{burrows2006chubby,chang2008bigtable}。
 出块节点打包区块并广播后，其他节点对区块进行验证从而达到一致性。
 
-以比特币为代表的无授权区块链采取了最长链原则（Longest Chain Rule）\cite{nakamoto2008bitcoin}，随后论文\cite{sompolinsky2015secure}提出了最重子树原则（GHOST Rule）。最长链原则和最重子树原则通常被称之为链式协议（Chain-based Protocols）\footnote{https://blog.cosmos.network/consensus-compare-casper-vs-tendermint-6df154ad56ae}，在链式协议中，节点基于统一的规则构建链式账簿。链式协议仅能保证最终一致性（Eventual Consistency）\footnote{最终一致性是弱一致性（Weak Consistency）的一种形式}，即如果不再有新的状态更新，所有节点最终就共享状态达成一致，但在某个时间段内，共享状态在各个节点所存的状态可能不一致\cite{brewer2000towards}。
+以比特币为代表的无授权区块链采取了最长链原则（Longest Chain Rule）\cite{nakamoto2008bitcoin}，随后论文\cite{sompolinsky2015secure}提出了最重子树原则（GHOST Rule）。最长链原则和最重子树原则通常被称之为链式协议（Chain-based Protocols）\footnote{https://blog.cosmos.network/consensus-compare-casper-vs-tendermint-6df154ad56ae}，在链式协议中，节点基于统一的规则构建链式账簿。
 
 对于链式结构的系统，在达到最终一致性前任何区块状态都可能发生改变（例如某个区块在某个时间后不再属于最长链），通常这种改变概率随着链式结构增长单调递减\cite{nakamoto2008bitcoin}，因此链式结构共识无法保证最终性（Finality），或者仅提供概率终结性（Probabilistic Finality）\cite{wang2019survey}。
 

@@ -10,7 +10,7 @@
 %对于节点集合$V$\footnote{类似于定义\ref{def:leader_election}，此处$V$可为有限或无限集合。}，
 首先我们给出拜占庭容错的状态机复制问题定义。
 \begin{definition}
-（拜占庭容错状态机复制）对于接受节点集合$A$，其中最多有$f$个拜占庭节点（即最少有$n_a-f$个诚实节点），所有接受节点必须从提案中最终做出决策，并且满足下述条件：
+（拜占庭容错状态机复制）对于验证节点集合$V$，其中最多有$f$个拜占庭节点（即最少有$n_v-f$个诚实节点），所有验证节点必须从提案中最终做出决策，并且满足下述条件：
 \begin{itemize}
 	\item 一致性（Agreement）：所有诚实节点的决策必定相同。
 	\item 可终止性（Termination）：所有诚实节点在有限的时间内结束决策过程。
@@ -21,41 +21,54 @@
 根据FLP定律，在完全异步网络拜占庭环境下，不存在确定性的算法满足上述条件\cite{fischer1982impossibility}。因此现有区块链交易验证算法都是同步（或者所谓的半同步）网络拜占庭环境下的状态机复制算法\cite{gilad2017algorand,castro1999practical}。
 
 \subsection{性质分析}
-对于共识机制，除了上述必须满足的特性之外，我们讨论另一个重要性质，最终性（Finality）。在区块链共识系统中，最终性是指由诚实接受节点决策通过的区块状态不会被改变，最终性又被称为绝对最终性（Absolute Finality），对应地，存在一定概率使已通过区块状态改变称之为概率最终性（Probabilistic Finality）\footnote{Finality in Blockchain Consensus, https://medium.com/mechanism-labs/finality-in-blockchain-consensus-d1f83c120a9a}。
+除了上述必须满足的特性之外，我们讨论另一个重要性质，最终性（Finality）。
+
+在区块链系统中，由于网络延迟以及恶意出块因此在同一高度可能会出现多个区块即分叉。因此所有验证节点需要对分叉进行协定，即选择某个区块从而达到共享状态。最终性是指由接受节点决策通过的共享状态不会被改变，最终性又被称为绝对最终性（Absolute Finality），对应地，存在一定概率使已通过区块状态改变称之为概率最终性（Probabilistic Finality）\footnote{Finality in Blockchain Consensus, https://medium.com/mechanism-labs/finality-in-blockchain-consensus-d1f83c120a9a}。
 
 交易确认机制根据块是否具有最终性划分为链式协议和基于投票协议\cite{wang2019survey}。
 
 \subsubsection{链式协议}
-链式交易验证则仅满足概率最终性，即随着链结构的增长交易状态改变的概率逐渐降低，但永远无法达到零，即仍然存在被改变可能。
+在采用链式协议的系统中，通常并不区分出块节点和验证节点。诚实的出块节点会遵从某种规则（最长链原则或者最重子树原则）产生区块，当出现分叉后，根据上述规则所有节点达成一致共享状态。
+
+首先，链式协议仅能保证最终一致性（Eventual Consistency）\footnote{最终一致性是弱一致性（Weak Consistency）的一种形式}，即如果不再有新的状态更新，所有节点最终就共享状态达成一致，但在某个时间段内，共享状态在各个节点所存的状态可能不一致\cite{brewer2000towards}。
+
+同时，链式协议仅满足概率最终性，即随着链结构的增长区块状态改变的概率逐渐降低，但永远无法达到零，即仍然存在被改变可能。比特币白皮书\cite{nakamoto2008bitcoin}给出了概率确定性的简单分析，基于最长链原则，当恶意节点产生区块的概率$q=0.1$时，恶意节点从6个区块高度前开始重新构造子链从而逆转当前主链的概率低于$0.0003$，因此比特币网络的交易确认时间通常约定俗成为一小时即6个区块高度。
+
+随之而来的是，采用链式协议的系统需要等待一段时间才能提供足够的概率最终性，因此往往链式协议系统的延迟（Latency）都较高\cite{bano2017consensus}。
+
+从安全角度来看，概率最终性意味着已经验证的交易会存在修改的可能，例如出现双重支付（Double-Spending）或者长距离攻击（Long-Range Attack）等\cite{garay2015bitcoin,bahack2013theoretical}，更详细的分析见附录\ref{ch:attack}。
+
+%虽然比特币等采用链式验证协议的系统认为随着最长链的增长其被扭转概率会非常低，但实际上目前比特币网络中排名前四的矿池已经占据了全网$50\%$以上算力\footnote{https://www.blockchain.com/pools.}，这意味着其安全性是由矿池决定而并非系统本身。因此理论上安全的区块链系统必须满足最终性。
 
 
 \subsubsection{投票协议}
-投票式交易验证满足最终性，即交易一旦完成验证则不可能发生改变。对应地，需要指出的是，即便是基于投票的验证协议，其底层数据结构仍可以采用链式区块结构。
+%投票式交易验证满足最终性，即交易一旦完成验证则不可能发生改变。对应地，需要指出的是，即便是基于投票的验证协议，其底层数据结构仍可以采用链式区块结构。
+%同时，随着数据的不断增长，一些普通节点可能无法负担庞大的数据量，因此最终性可以减少数据的存储。最后，考虑到未来的分片设计，数据分片需要最终性作为基础。
+%综上，我们采用基于投票机制的设计，保证交易验证的最终性。
+为了实现最终性，许多区块链系统采用了传统分布式系统的共识算法。论文\cite{howard2019consensus}指出现有的分布式系统共识大多基于经典的Paxos模型\cite{lamport2001paxos}，在该模型下，所有接受节点通过投票对提案者的提案进行表决，此类协议被称为投票协议。
 
-从安全性角度，我们不希望已经验证的交易会存在修改的可能，即出现双重支付（Double-Spending）或者长距离攻击（Long-Range Attack）。虽然比特币等采用链式验证协议的系统认为随着最长链的增长其被扭转概率会非常低，但实际上目前比特币网络中排名前四的矿池已经占据了全网$50\%$以上算力\footnote{https://www.blockchain.com/pools.}，这意味着其安全性是由矿池决定而并非系统本身。因此理论上安全的区块链系统必须满足最终性。
+%投票协议满足最终性，因此交易一旦完成验证则不可能发生改变。
+%对应地，需要指出的是，即便是基于投票的验证协议，其底层数据结构仍可以采用链式区块结构。
+%\subsection{已有投票策略分析}
+%首先我们对目前基于投票的验证策略进行简单分析。
+%根据是否需要验证节点进行身份验证，我们将投票策略分为授权投票和无授权投票，通常来说分别适用于联盟链和公链。
 
-同时，随着数据的不断增长，一些普通节点可能无法负担庞大的数据量，因此最终性可以减少数据的存储。最后，考虑到未来的分片设计，数据分片需要最终性作为基础。
+对于联盟链为代表的系统\cite{androulaki2018hyperledger}，通常采用PBFT\cite{castro1999practical}和投机BFT算法\cite{kotla2007zyzzyva}。
+%\subsubsection{授权投票策略：PBFT}
+%协议中负责提案的节点称之为主节点（Primary），其余所有的接受节点称之为副本节点（Backups）。在已经指定领袖节点的情况下，验证过程如下：
+%\begin{itemize}
+%	\item PRE-PREPARE：主节点在收到请求后向所有副本节点广播与准备消息，其格式为$\langle \langle PRE-PREPARE,v,n,d \rangle_{\sigma p},m \rangle$，其中$v$是视图编号，$n$是消息序号，$d$是消息摘要，$m$为请求消息，$\sigma _p$为主节点$p$的签名；
+%	\item PREPARE：一旦副本节点$i$接受预准备消息则进入准备阶段，同时该节点向所有副本节点发送准备消息$\langle PREPARE,v,n,d,i\rangle_{\sigma i}$。当节点$i$收到$2f$个从不同副本节点发来与$PRE-PREPARE$相匹配的$PREPARE$消息，则定义$prepared(m,v,n,i)$为真；
+%	\item COMMIT：当$prepared(m,v,n,i)$为真时，副本节点$i$将$\langle COMMIT,v,n,D(m),i\rangle$广播至其他副本节点，进入确认阶段。对节点$i$而言，$prepared(m,v,n,i)$为真且$i$已经接受了$2f+1$个$COMMIT$消息与$PRE-PREPARE$消息一致则定义$committed-local(m,v,n,i)$为真。而存在$f+1$个正常副本节点集合使得其中所有副本节点$i$的$prepared(m,v,n,i)$为真，则定义$committed(m,v,n)$为真。
+%\end{itemize}
+%\textcolor{gray}{预准备阶段和准备阶段确保所有正常节点对同一个视图中的请求序号达成一致。而确认阶段保证了所有正常阶段对本地确认的请求序号达成一致，及时这些请求在每个节点的确认处于不同的视图。}
+在PBFT策略中，验证节点为固定的集合，并且所有节点身份公开，在其发布PREPARE消息后其决策也公开可见，因而在其发布正常COMMIT消息前存在被攻击或者贿赂可能。同时，此类BFT算法在一般情况下网络通信开销为$O(n^2)$，因此验证节点的规模通常较小。综上对于采用PBFT算法的系统，无法适用于无授权环境。
 
-综上，我们采用基于投票机制的设计，保证交易验证的最终性。
-
-
-\subsection{已有投票策略分析}
-首先我们对目前基于投票的验证策略进行简单分析。根据是否需要验证节点进行身份验证，我们将投票策略分为授权投票和无授权投票，通常来说分别适用于联盟链和公链。
-
-\subsubsection{授权投票策略：PBFT}
-PBFT协议\cite{castro1999practical}最早并不是用于区块链，协议中负责提案的节点称之为主节点（Primary），即领袖节点。在已经指定领袖节点的情况下，提案验证过程包括下面3步：
-\begin{itemize}
-	\item PRE-PREPARE：主节点在收到请求后向所有副本节点广播与准备消息，其格式为$\langle \langle PRE-PREPARE,v,n,d \rangle_{\sigma p},m \rangle$，其中$v$是视图编号，$n$是消息序号，$d$是消息摘要，$m$为请求消息，$\sigma p$为主节点$p$的签名；
-	\item PREPARE：一旦副本节点$i$接受预准备消息则进入准备阶段，同时该节点向所有副本节点发送准备消息$\langle PREPARE,v,n,d,i\rangle_{\sigma i}$。当节点$i$收到$2f$个从不同副本节点发来与$PRE-PREPARE$相匹配的$PREPARE$消息，则定义$prepared(m,v,n,i)$为真；
-	\item COMMIT：当$prepared(m,v,n,i)$为真时，副本节点$i$将$\langle COMMIT,v,n,D(m),i\rangle$广播至其他副本节点，进入确认阶段。对节点$i$而言，$prepared(m,v,n,i)$为真且$i$已经接受了$2f+1$个$COMMIT$消息与$PRE-PREPARE$消息一致则定义$committed-local(m,v,n,i)$为真。而存在$f+1$个正常副本节点集合使得其中所有副本节点$i$的$prepared(m,v,n,i)$为真，则定义$committed(m,v,n)$为真。
-\end{itemize}
-
-\textcolor{gray}{预准备阶段和准备阶段确保所有正常节点对同一个视图中的请求序号达成一致。而确认阶段保证了所有正常阶段对本地确认的请求序号达成一致，及时这些请求在每个节点的确认处于不同的视图。}
-
-不难发现，在PBFT策略中，验证节点为固定的集合，并且所有节点身份公开，在其发布PREPARE消息后其决策也公开可见，因而在其发布正常COMMIT消息前存在被攻击或者贿赂可能。所以对于采用PBFT算法的系统，无法适用于无授权环境。
-
-\subsubsection{无授权投票：Algorand}
+%\subsubsection{无授权投票：Algorand}
 %无授权场景下节点会动态加入离开，同时由于节点没有身份认证，
+为适用于更大的节点规模，Byzcoin从出块节点中选择验证节点\cite{kogias2016enhancing}，Algorand采用抽签方式选择验证节点\cite{gilad2017algorand}，本质上来看，两者都通过随机方式（PoW或者伪随机数）从一个大规模集合中选择更小规模的验证集合。
+
+
 
 不同于PBFT，Algorand\cite{gilad2017algorand}属于无授权场景共识 协议，对应地，Algorand在领袖选举和交易验证中均采用了基于VRF的随机抽取策略。这里重点分析其交易验证部分。
 

@@ -9,7 +9,7 @@
 
 在一些传统分布式系统中负责发起状态更变请求的节点被定义为主节点(Primary)，接受并验证请求的为副本节点（Backup）\cite{lamport2001paxos,castro1999practical}。在一些区块链系统中，所有参与打包区块以及验证区块的节点，统称为矿工（Miner），而在另一些系统中则区分为出块节点、验证节点和监听节点\cite{ultrain2019}。
 
-论文\cite{howard2019consensus}提出了更具有一般性的分布式共识系统节点模型，即系统中分为提案节点（Proposer）和接受节点（Acceptor）。本文采用同样设定，对于有$n$个节点的系统$U$，将接受节点集合表示为$A=\{a_1,a_2,\cdots\}$，其中$A\subseteq U$且$|A|=n_a$；对应地将提案节点结合表示为$P=\{p_1,p_2,\cdots\}$，其中$P\subseteq U$且$|P|=n_p$。
+论文\cite{howard2019consensus}提出了更具有一般性的分布式共识系统节点模型，即系统中分为提案节点（Proposer）和验证节点（Validator）。本文采用类似设定，对于有$n$个节点的系统$U$，将验证节点集合表示为$V=\{a_1,a_2,\cdots\}$，其中$V\subseteq U$且$|V|=n_v$；对应地将提案节点结合表示为$P=\{p_1,p_2,\cdots\}$，其中$P\subseteq U$且$|P|=n_p$。
 
 %执行领袖选举协议的节点称之为提案者（Proposal），而选举具有出块权限的节点称之为领袖（Leader）。
 
