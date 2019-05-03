@@ -1,38 +1,41 @@
 % !TEX root = main.tex
-\section{交易验证}
+\section{一致达成}
 \label{sec:tx_verification}
 \subsection{基础}
-基于第\ref{sec:leader_election}章，在已选举出提案者的情况下，交易验证对提案者的出块进行验证，该问题可以抽象为分布式系统中的状态机复制问题\cite{pass2017rethinking}。
+基于第\ref{sec:leader_election}章，在出块节点提出区块的情况下，验证节点\footnote{部分系统对出块和验证节点不作区分。}需要对区块的顺序达成一致，该问题可以抽象为分布式系统中的状态机复制（State Machine Replication）问题\cite{pass2017rethinking}。
 
 %首先给出拜占庭环境下交易验证的相关定义和特性。
 
 
 %对于节点集合$V$\footnote{类似于定义\ref{def:leader_election}，此处$V$可为有限或无限集合。}，
-首先我们给出拜占庭容错的状态机复制问题定义。
+首先我们给出区块链中拜占庭容错的状态机复制问题定义。
 \begin{definition}
 （拜占庭容错状态机复制）对于验证节点集合$V$，其中最多有$f$个拜占庭节点（即最少有$n_v-f$个诚实节点），所有验证节点必须从提案中最终做出决策，并且满足下述条件：
 \begin{itemize}
-	\item 一致性（Agreement）：所有诚实节点的决策必定相同。
-	\item 可终止性（Termination）：所有诚实节点在有限的时间内结束决策过程。
-	\item 有效性（Validity）\footnote{部分研究中将可终止性和有效性描述为活性（Liveness）。}：选择出的决策值必须来自某个有效的提案。
+	\item 安全性（Safety）\footnote{部分研究描述为一致性（Consistency）。}：所有诚实（验证）节点对所有提议区块达成顺序一致性；
+	\item 活性（Liveness）\footnote{部分研究描述为可终止性（Termination）和有效性（Validity）。}：所有诚实（出块）节点提出的区块最终都会被记录；
+	%\item 可终止性（Termination）：所有诚实节点在有限的时间内结束决策过程。
+	%\item 有效性（Validity）\footnote{部分研究中将可终止性和有效性描述为活性（Liveness）。}：选择出的决策值必须来自某个有效的提案。
 \end{itemize}
 \end{definition}
 
-根据FLP定律，在完全异步网络拜占庭环境下，不存在确定性的算法满足上述条件\cite{fischer1982impossibility}。因此现有区块链交易验证算法都是同步（或者所谓的半同步）网络拜占庭环境下的状态机复制算法\cite{gilad2017algorand,castro1999practical}。
+根据FLP定律，在完全异步网络拜占庭环境下，不存在确定性的算法满足上述条件\cite{fischer1982impossibility}。因此现有区块链交易验证算法都是同步（或者所谓的半同步）网络拜占庭环境下的状态机复制算法\cite{gilad2017algorand,castro1999practical}。更进一步地，在有拜占庭节点的情况下，现有的区块链共识算法在异步网络中应该优先保证安全性而舍弃活性\footnote{区块链共识算法的发展趋势，https://zhuanlan.zhihu.com/p/52251671}。
+
+%保证异步网络的，同步网络的活性
 
 \subsection{性质分析}
-除了上述必须满足的特性之外，我们讨论另一个重要性质，最终性（Finality）。
+除了上述的特性之外，我们需要考虑另一个重要性质，最终性（Finality）。
 
-在区块链系统中，由于网络延迟以及恶意出块因此在同一高度可能会出现多个区块即分叉。因此所有验证节点需要对分叉进行协定，即选择某个区块从而达到共享状态。最终性是指由接受节点决策通过的共享状态不会被改变，最终性又被称为绝对最终性（Absolute Finality），对应地，存在一定概率使已通过区块状态改变称之为概率最终性（Probabilistic Finality）\footnote{Finality in Blockchain Consensus, https://medium.com/mechanism-labs/finality-in-blockchain-consensus-d1f83c120a9a}。
+在区块链系统中，由于网络延迟以及恶意出块因此在同一高度可能会出现多个区块即分叉。因此所有验证节点需要对分叉进行协定，即选择某个区块从而达到共享状态。最终性是指由验证节点决策通过的共享状态不会被改变，最终性又被称为绝对最终性（Absolute Finality），对应地，存在一定概率使已通过区块状态改变称之为概率最终性（Probabilistic Finality）\footnote{Finality in Blockchain Consensus, https://medium.com/mechanism-labs/finality-in-blockchain-consensus-d1f83c120a9a}。
 
-交易确认机制根据块是否具有最终性划分为链式协议和基于投票协议\cite{wang2019survey}。
+根据是否具有最终性，现有的共识算法又可以划分为链式协议和基于投票协议\cite{wang2019survey}。
 
 \subsubsection{链式协议}
 在采用链式协议的系统中，通常并不区分出块节点和验证节点。诚实的出块节点会遵从某种规则（最长链原则或者最重子树原则）产生区块，当出现分叉后，根据上述规则所有节点达成一致共享状态。
 
 首先，链式协议仅能保证最终一致性（Eventual Consistency）\footnote{最终一致性是弱一致性（Weak Consistency）的一种形式}，即如果不再有新的状态更新，所有节点最终就共享状态达成一致，但在某个时间段内，共享状态在各个节点所存的状态可能不一致\cite{brewer2000towards}。
 
-同时，链式协议仅满足概率最终性，即随着链结构的增长区块状态改变的概率逐渐降低，但永远无法达到零，即仍然存在被改变可能。比特币白皮书\cite{nakamoto2008bitcoin}给出了概率确定性的简单分析，基于最长链原则，当恶意节点产生区块的概率$q=0.1$时，恶意节点从6个区块高度前开始重新构造子链从而逆转当前主链的概率低于$0.0003$，因此比特币网络的交易确认时间通常约定俗成为一小时即6个区块高度。
+同时，链式协议仅满足概率最终性，即随着链结构的增长区块状态改变的概率逐渐降低，但永远无法达到零，即仍然存在被改变可能。比特币白皮书给出了概率最终性的简单分析，基于最长链原则，当恶意节点产生区块的概率$q=0.1$时，恶意节点从6个区块高度前开始重新构造子链从而逆转当前主链的概率低于$0.0003$\cite{nakamoto2008bitcoin}，因此比特币网络的交易确认时间通常约定俗成为一小时即6个区块高度。
 
 随之而来的是，采用链式协议的系统需要等待一段时间才能提供足够的概率最终性，因此往往链式协议系统的延迟（Latency）都较高\cite{bano2017consensus}。
 
@@ -66,102 +69,59 @@
 
 %\subsubsection{无授权投票：Algorand}
 %无授权场景下节点会动态加入离开，同时由于节点没有身份认证，
-为适用于更大的节点规模，Byzcoin从出块节点中选择验证节点\cite{kogias2016enhancing}，Algorand采用抽签方式选择验证节点\cite{gilad2017algorand}，本质上来看，两者都通过随机方式（PoW或者伪随机数）从一个大规模集合中选择更小规模的验证集合。
+为适用于更大的节点规模，Byzcoin从出块节点中选择验证节点\cite{kogias2016enhancing}，Algorand采用抽签方式选择验证节点\cite{gilad2017algorand}，本质上来看，两者都通过随机方式（PoW或者伪随机数）从一个大规模集合中选择更小规模的验证集合用于投票。同时，与PBFT等传统分布式共识算法不同的是，Algorand采用的投票算法$BA\bigstar$并未区分主节点和备份节点，在整个投票过程中，每个验证节点都需要多次执行$CommitteeVote()$和$CountVotes()$操作，即进行多次的投票和计票。Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票选择，在保证一定比例诚实节点的情况下，如果收不到足够的投票则问题一定出在网络上\footnote{Algorand假设网络最终会收敛于同步模型}。%但由于诚实节点仍可能会被攻击或者贿赂，我们认为该算法仍然存在问题。
+
+关于投票的研究有很多，论文\cite{kiayias2002self}指出电子投票系统需要满足若干特性，详细分析见附录\ref{ch:voting}。
+
+%不同于PBFT，Algorand\cite{gilad2017algorand}属于无授权场景共识 协议，对应地，Algorand在领袖选举和交易验证中均采用了基于VRF的随机抽取策略。这里重点分析其交易验证部分。
+
+%Algorand验证的核心算法$BA\bigstar$来自于\cite{miller2016honey}，具体如下：
+%\begin{itemize}
+%	\item Reduction：该步骤的目标是将需要达成共识的多个区块转化为对某一特定区块或者空块二选一达成共识；
+%	\item BinaryBA$\bigstar$：基于Reduction的输出，在特定区块和空块之间达成共识。在$Maxstep$轮中没有达成共识则认为网络状况出现问题。
+%\end{itemize}
+
+%需要注意的是，在Reduction和BinaryBA$\bigstar$中，都需要多次执行$CommitteeVote()$和$CountVotes()$操作，即投票和计票。这里重点分析前者，$CommitteeVote()$输入包括$(ctx,round,step,\tau,value)$，其中$ctx$为环境变量（包括当前账本信息以及当前种子等等），$round$表示当前轮数，$step$表示执行当前计票操作的步骤（例如Reduction-1），$\tau$表示抽签比例参数，$value$表示投票区块。
+
+%验证节点执行$CommitteeVote()$时需要先执行$Sortition()$即通过抽签判断自己是否有资格参与投票，不难发现，在给定$round$和随机种子（$ctx.seed$）情况下，每个验证节点每次执行$Sortition()$的结果固定。因此实际上在Reduction和BinaryBA$\bigstar$过程中，仍然是同一批节点在参与投票，并且在Reduction中的第一次$CommitteeVote()$之后，所有投票的节点身份已经曝光，因此也存在被攻击或者贿赂的风险。
+
+%Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票选择，在保证三分之二诚实节点的情况下，如果收不到足够的投票则问题一定出在网络上\footnote{Algorand假设网络最终会收敛于同步模型}。但由于诚实节点仍可能会被攻击或者贿赂，我们认为该算法仍然存在问题。
 
 
+%\subsection{投票模型}
 
-不同于PBFT，Algorand\cite{gilad2017algorand}属于无授权场景共识 协议，对应地，Algorand在领袖选举和交易验证中均采用了基于VRF的随机抽取策略。这里重点分析其交易验证部分。
-
-Algorand验证的核心算法$BA\bigstar$来自于\cite{miller2016honey}，具体如下：
-\begin{itemize}
-	\item Reduction：该步骤的目标是将需要达成共识的多个区块转化为对某一特定区块或者空块二选一达成共识；
-	\item BinaryBA$\bigstar$：基于Reduction的输出，在特定区块和空块之间达成共识。在$Maxstep$轮中没有达成共识则认为网络状况出现问题。
-\end{itemize}
-
-需要注意的是，在Reduction和BinaryBA$\bigstar$中，都需要多次执行$CommitteeVote()$和$CountVotes()$操作，即投票和计票。这里重点分析前者，$CommitteeVote()$输入包括$(ctx,round,step,\tau,value)$，其中$ctx$为环境变量（包括当前账本信息以及当前种子等等），$round$表示当前轮数，$step$表示执行当前计票操作的步骤（例如Reduction-1），$\tau$表示抽签比例参数，$value$表示投票区块。
-
-验证节点执行$CommitteeVote()$时需要先执行$Sortition()$即通过抽签判断自己是否有资格参与投票，不难发现，在给定$round$和随机种子（$ctx.seed$）情况下，每个验证节点每次执行$Sortition()$的结果固定。因此实际上在Reduction和BinaryBA$\bigstar$过程中，仍然是同一批节点在参与投票，并且在Reduction中的第一次$CommitteeVote()$之后，所有投票的节点身份已经曝光，因此也存在被攻击或者贿赂的风险。
-
-Algorand假设在整个$BA\bigstar$过程中所有验证节点不会改变投票选择，在保证三分之二诚实节点的情况下，如果收不到足够的投票则问题一定出在网络上\footnote{Algorand假设网络最终会收敛于同步模型}。但由于诚实节点仍可能会被攻击或者贿赂，我们认为该算法仍然存在问题。
-
-
-\subsection{投票模型}
-目前关于电子投票（Electronic Voting）的研究中\cite{kiayias2002self}，除去传统的隐私性（Privacy）、公平性（Fairness）和健壮性（Robustness）需求，理想的电子投票还需要满足如下要求：
-\begin{itemize}
-	%\item 隐私性：
-	%\item 健壮性：
-	%\item 公平性：
-	\item 可校验性（Universal-Verifiability）：任何第三方都可以验证最后的投票结果是否正确统计了合法选票\footnote{另有原子可校验性描述仅投票者可以验证投票结果是否正确统计了合法选票。}；
-	\item 无收据性（Receipt-Freeness）：投票者无法向第三方证明其所投的选票内容；
-	\item 无争议性（Dispute-Freeness）：任何第三方都可以验证协议的参与方是否正确执行了协议；
-	\item 自计票性（Self-Tallying）：任何第三方可以进行计票，而不需要可信第三方或者投票者的参与；
-	\item 完善保密性（Perfect Ballot Secrecy）：假设存在$n$个选民，任何$t$个（$t<n$）投票者的投票结果只有剩余$n-t$个投票者串通起来才能知道。
-\end{itemize}
-
-而对于共识机制中的投票系统，由于不存在可信的第三方机构，每个验证节点既是投票者也是计票者\textcolor{red}{(即所谓的"all voters are talliers")}，因此其必须满足可校验性和自计票性。\textcolor{red}{论文\cite{kiayias2002self}指出在大规模的投票系统中，并不需要满足完善保密性。}
-
-现有大多数基于投票的共识机制都无法满足无收据性和无争议性，具体地来说，对于拜占庭验证节点，虽然无法伪造或篡改其他人的消息\footnote{通常而言，我们认为现有的签名算法可以保证信息无法篡改或者伪造。}，但仍可能出现如下恶意行为：
-
-\begin{itemize}
-	\item 恶意投票：恶意验证者不发布任何投票或者对其他验证者发布不同的投票，例如对部分验证者发布$\langle pk_i,sign_{sk_i}(t,h(B_1),\pi_i) \rangle$，而对另一部分验证者发布$\langle pk_i,sign_{sk_i}(t,h(B_2),\pi_i) \rangle$，$B_1 \neq B_2$。
-	\item 割裂网络：在采用Gossip协议传输的网络中，恶意节点可能在收到其他节点的投票后不向其他节点转发该信息，导致原有投票信息无法广播到所有节点。
-	\item 共谋：恶意节点在投票前或者投票过程中得知其他验证者身份，从而贿赂其他验证者使其投票决策发生变化。
-\end{itemize}
-
-\textcolor{red}{作为分布式系统，区块链中所有验证节点通过P2P方式进行通信，因此任何节点在投票过程中都无法检验其他节点是否正确执行协议，即在投票过程中无争议性无法保证。}\footnote{尽管Casper通过Slash机制实现了检点的互相监督，但恶意行为被发现是基于交易已经上链的前提。}在这种情况下，恶意投票和割裂网络将变得可行。这两种行为会导致决策无法收敛，从而影响共识的活性。%目前的投票共识往往通过监督检举的方式来减少恶意投票和割裂网络行为\cite{buterin2017casper}。
-
-共谋行为则违背了无收据性，\textcolor{red}{现有大部分投票共识都没有考虑拜占庭节点的共谋行为}并且假设系统中拜占庭节点比例低于某个阈值（例如三分之一），而实际上，由于共谋行为的存在，系统中拜占庭节点比例会更高。
 
 %即便，其仍可能通过共谋导致潜在的安全问题。
-我们认为理想的投票机制应该抵抗上述三种恶意行为。首先，我们给出投票流程中的相关定义：
+%我们认为理想的投票机制应该抵抗上述三种恶意行为。首先，我们给出投票流程中的相关定义：
 
-\begin{definition}
-	（注册）对于任何期望参与验证过程的节点$i$，执行操作$R(s_i,\varepsilon)$，$s_i$为节点$i$的状态，$\varepsilon$为额外证明输入\textcolor{gray}{（通常为某个随机数）}，$R$输出为
-\end{definition}
+%\begin{definition}
+%	（注册）对于任何期望参与验证过程的节点$i$，执行操作$R(s_i,\varepsilon)$，$s_i$为节点$i$的状态，$\varepsilon$为额外证明输入\textcolor{gray}{（通常为某个随机数）}，$R$输出为
+%\end{definition}
 
-\begin{definition}
-（投票） 对于验证节点$i$，在接受某提案区块$B$后，满足$V(B,t)=1$的情况下，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
-\end{definition}
+%\begin{definition}
+%（投票） 对于验证节点$i$，在接受某提案区块$B$后，满足$V(B,t)=1$的情况下，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
+%\end{definition}
 
-\begin{definition}
-	（验票）
-\end{definition}
+%\begin{definition}
+%	（验票）
+%\end{definition}
 
-\begin{definition}
-（计票） 对于验证节点$j$，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
-\end{definition}
+%\begin{definition}
+%（计票） 对于验证节点$j$，对所有验证节点广播消息$\langle pk_i,sign_{sk_i}(h(B),\pi_i) \rangle$。其中$sign_{sk_i}(\cdot)$表示基于节点$i$私钥的签名，$h(B)$表示提案区块$B$的哈希值，$\pi_i$表示验证节点$i$的投票效益证明。
+%\end{definition}
 
 
-\subsection{补充：投票效益}
-除了投票过程中可能出现的攻击，对于投票效益的计算，我们认为也可能存在如下潜在的安全问题：
+此外，对于共识中的投票协议，其投票效益的计算也不应被忽视。许多共识系统采用的是“一人一票”制度，即任何有投票权的验证节点只能投一票，但验证节点获取投票权的概率和其持有（或抵押）的资产相关\cite{gilad2017algorand,buchman2016tendermint}，这可能导致系统容易收到女巫攻击（Sybil Attack）\cite{douceur2002sybil}。在非授权的投票系统中，攻击者可以通过创建大量假名节点来增加其获取投票权的概率。因此投票过程必须能够抵抗女巫攻击，解决方法可以是通过设置准入门槛\cite{david2018ouroboros}，或者采用类似于星云指数的计算方式\cite{Nebulasyellowpaper}。
 
-\begin{itemize}
-	\item 女巫攻击：投票过程必须能够抵抗女巫攻击（Sybil Attack），解决方法可以是通过设置准入门槛或者将投票效益与参与者的资产挂钩。
-	\item Nothing-at-Stake：通常而言区块链共识的投票是根据参与者的持有（或抵押）的资产计算所得，在没有投票成本的情况下，验证者更倾向分散其投票效益。一种解决方法是引入投票成本，或者对于分散投票行为作出惩罚\cite{buterin2017casper}。	
+%投票协议也需要满足如下特性：
+
+%部分共识采用的投票协议并非“一人一票”，其票数是根据参与者的持有（或抵押）的资产计算所得\cite{gilad2017algorand}，因此可能会出现如下安全问题：
+
+%对于投票效益的计算，我们认为也可能存在如下潜在的安全问题：
+
+%\begin{itemize}
+%	\item 抗女巫攻击：传统意义上的女巫攻击（Sybil Attack）是指攻击者通过创建大量的假名表示来破坏对等网络的评价系统\cite{douceur2002sybil}，在非授权的投票系统中，攻击者可以通过创建大量假名节点来增加其获取投票权的概率。因此投票过程必须能够抵抗女巫攻击，解决方法可以是通过设置准入门槛\cite{david2018ouroboros}，或者采用类似于星云指数的计算方式\cite{Nebulasyellowpaper}；
+%	\item Nothing-at-Stake：无利害关系（Nothing-at-Stake）是指在没有投票成本的情况下，验证者更倾向分散其投票效益。一种解决方法是引入投票成本，或者对于分散投票行为作出惩罚\cite{buterin2017casper}。	
 	%\item 共谋：为防止贿选以及共谋现象（Colluding），投票前投票节点身份不应曝光，同时在每次投票后（例如公布对某个区块的签名公证），其将丧失投票资格，直至再次入选委员会。
 	%\item 延迟：尽管任何共识机制都需要保证在有限时间内结束决策，但我们仍希望投票能够快速达成一致，从而减少交易的确认延时（confirmation delay）。
-\end{itemize}
-
-
-\begin{figure}
-\centering
-\begin{tikzpicture}[
-    declare function={func(\x,\mu) = (\x / (1 + exp(\mu-\x)));},
-    declare function={linefunc(\x) = \x;}
-]
-\begin{axis}[
-    axis lines=left,
-    enlargelimits=upper,
-ticks=none,axis x line=bottom,axis y line=left,xlabel={Nebulas Rank Factor},
-  ylabel={Nebulas Rank},
-      legend pos=north west,
-legend style={fill=none}
-]
-\addplot [dashed, domain=0:10, blue] {linefunc(x)};
-\addplot [smooth, domain=0:10, red] {func(x,3)};
-\addlegendentry{$f(x)=x$}
-\addlegendentry{$f(x)=x/(1 + e^{a + b\cdot x})$}
-\end{axis}
-\end{tikzpicture}
-\caption{The curve of the Nebulas Rank function \label{fig-nr}}
-\end{figure}
+%\end{itemize}

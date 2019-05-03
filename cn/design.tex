@@ -1,24 +1,21 @@
 % !TEX root = main.tex
-\section{领袖选举}
-
-
+\section{区块提议}
 \label{sec:leader_election}
 \subsection{基础}
+论文\cite{brown2018formal}中给出了区块提议的数学描述，类似地，我们给出相关定义。
 
-
-首先，我们给出领袖选举的相关定义。
 \begin{definition}
-（领袖选举协议$\Pi$） 对于参与出块的节点$p_i\in P$\footnote{为不是一般性，此处$P$可以为有限或无限集合。}，在时刻$t$执行函数$M_i$，$M_i$的输入为$(Tx,B',\zeta_i)$，其中$Tx$为待验证交易集合，$B'$为某已知区块，$\zeta_i$为节点$p_i$的选举参数。$M_i$的输出$\in\Omega=\{B,\bot\}$，样本空间$\Omega$为非空集合，当$M_i=\bot$时，节点$p_i$无法出块；当$M_i=B$时，节点$p_i$成为出块节点，并且提案区块$B$成为$B'$的后置区块，即$\hbar_B=\hbar_{B'}+1$。
+（出块协议$\Pi$） 对于参与出块的节点$p_i\in P$\footnote{不失一般性，此处$P$可以为有限或无限集合。}，在时刻$t$执行函数$M_i$，$M_i$的输入为$(Tx,B',\zeta_i)$，其中$Tx$为待验证交易集合，$B'$为某已知区块，$\zeta_i$为节点$p_i$的选举参数。$M_i$的输出$\in\Omega=\{B,\bot\}$，样本空间$\Omega$为非空集合，当$M_i=\bot$时，节点$p_i$无法出块；当$M_i=B$时，节点$p_i$提出区块$B$，并且提案区块$B$成为$B'$的后置区块，即$\hbar_B=\hbar_{B'}+1$。
 \end{definition}
 
-通常来说，$M_i(Tx.B',\zeta)=B$的必要条件是待验证交易组$Tx$和区块$B'$有效。对于UTXO模型和Account模型，交易组$Tx$有效性验证方式不同，而区块$B'$的有效性确定也与共识机制相关，本章不做详细介绍。
+通常来说，$M_i(Tx.B',\zeta)=B$的必要条件是待验证交易组$Tx$和区块$B'$有效。对于UTXO模型和Account模型，交易组$Tx$有效性验证方式不同，而区块$B'$的有效性确定也与一致性相关，本章不做详细介绍。
 
-根据选举协议是否依赖于物理算力，目前大致有PoW和PoS两种选举机制。
+根据出块是否依赖于物理算力，目前大致有PoW和PoS两种出块机制。
 
-PoW协议最早由\cite{dwork1992pricing}提出，被用于防止拒绝服务攻击，后被比特币应用于出块节点选举\cite{nakamoto2008bitcoin}。我们首先给出PoW领袖选举机制$\Pi_w$的一般性描述。
+PoW协议最早由\cite{dwork1992pricing}提出，被用于防止拒绝服务攻击，后被比特币应用于出块节点选择\cite{nakamoto2008bitcoin}。我们首先给出PoW出块机制$\Pi_w$的一般性描述。
 
 \begin{definition}
-（选举协议$\Pi_w$） 基于PoW机制的领袖选举协议，有$\zeta=\langle x,c,d \rangle$，其中$x$为一个临时随机数，$c$表示挑战问题，$d$为正实数表示困难程度，且：\\
+（出块协议$\Pi_w$） 基于PoW的出块协议，有$\zeta=\langle x,c,d \rangle$，其中$x$为一个临时随机数，$c$表示挑战问题，$d$为正实数表示困难程度，且：\\
 \begin{equation}
 \label{eq:pow}
 M_i(Tx,B',\zeta_i)=M_i(Tx,B',c,x,d)=\begin{cases}
@@ -31,10 +28,10 @@ $h(\cdot)$表示某种哈希函数，$k$为某个正整数。
 
 以比特币为例，挑战问题$c$为区块$B$的区块头，$h(c,x)=SHA256(SHA256(c|x))$且$k=2^{224}$，即函数$M=B$的条件是$SHA256(SHA256(c|x))<\frac{2^{224}}{d}$。
 
-目前涌现出许多基于PoS的选举协议\cite{gilad2017algorand,david2018ouroboros,hanke2018difinity}，虽然这些协议实现机制略有不同，但本质上都是基于伪随机函数实现了出块节点的随机选举。在此我们给出PoS选举协议$\Pi_{s}$的一般描述。
+目前涌现出许多基于PoS的出块协议\cite{gilad2017algorand,david2018ouroboros,hanke2018difinity}，虽然这些协议实现机制略有不同，但本质上都是基于伪随机函数实现了出块节点的随机选择。在此我们给出PoS出块协议$\Pi_{s}$的一般描述。
 
 \begin{definition}
-（选举协议$\Pi_{s}$） 基于PoS机制的领袖选举协议，有$\zeta_i=\langle s_i(\hbar_{B'}),\delta \rangle$，其中$s_i(\hbar_{B'})$表示在已有区块$B'$的高度$\hbar_{B'}$上节点$p_i$的状态\footnote{为防止伪造，此处更为严谨的表示是$SIG_{sk_i}(s_i(\hbar_{B'}))$，即带有签名的状态，这里简单表示为$s_i(\hbar_{B'})$}，$\delta$表示可验证伪随机数，且
+（出块协议$\Pi_{s}$） 基于PoS机制的出块协议，有$\zeta_i=\langle s_i(\hbar_{B'}),\delta \rangle$，其中$s_i(\hbar_{B'})$表示在已有区块$B'$的高度$\hbar_{B'}$上节点$p_i$的状态\footnote{为防止伪造，此处更为严谨的表示是$SIG_{sk_i}(s_i(\hbar_{B'}))$，即带有签名的状态，这里简单表示为$s_i(\hbar_{B'})$}，$\delta$表示可验证伪随机数，且
 
 %（选举协议$\Pi_{\bar{w}}^\alpha$） 对于提案函数$M_i(Tx,B',\zeta_i)$，有$\zeta_i=\langle s_i,t_i,\delta \rangle$，其中$s_i$表示提案者$i$的状态（即权益），$t_i$为$i$的本地时间，$\delta$表示某个伪随机数，并且
 \begin{equation}
@@ -62,11 +59,11 @@ $g(\cdot)$表示\textcolor{red}{某种}函数。
 
 \subsection{性质分析}
 %本章给出选举协议需要满足特性的分析。
-论文\cite{brown2018formal}认为出块操作需要满足（伪）随机性，即节点在执行出块操作前无法预知自己或者其他节点是否会成为出块节点。当出块行为可以预知时，会导致一些安全问题，例如自私挖矿（Selfish Mining）\cite{eyal2018majority}问题。此外，节点在获得出块权之前可能采取消极运行策略\cite{hanke2018difinity}。更进一步地，目前许多链上DApps（例如博彩应用）的随机性往往来自于出块随机性，因此当出块可预测时，此类DApps则会有被操控风险\footnote{https://www.bitguai.com/block/news/36731.html}。
+论文\cite{brown2018formal}指出出块协议需要满足（伪）随机性，即节点在执行出块操作前无法预知自己或者其他节点是否会成为出块节点。当出块行为可以预知时，会导致一些安全问题，例如自私挖矿（Selfish Mining）\cite{eyal2018majority}问题。此外，节点在获得出块权之前可能采取消极运行策略\cite{hanke2018difinity}。更进一步地，目前许多链上DApps（例如博彩应用）的随机性往往来自于出块随机性，因此当出块可预测时，此类DApps则会有被操控风险\footnote{https://www.bitguai.com/block/news/36731.html}。
 
 同时论文\cite{sompolinsky2015secure}指出，由于现有网络的限制，出块频率过高会引起更多的链分叉（Fork），从而降低系统的安全性。
 
-因此，我们认为选举协议需要满足如下性质：
+因此，我们认为出块协议需要满足如下性质：
 
 \begin{itemize}
 	\item 不可预测性：任何节点在执行出块操作前无法预知自己或者其他节点是否会成为出块节点；
@@ -141,13 +138,13 @@ $g(\cdot)$表示\textcolor{red}{某种}函数。
 \subsubsection{PoW协议}
 
 %$\Pi_w$具有不可预测性，
-首先我们分析基于PoW的选举协议$\Pi_w$，根据公式\ref{eq:pow}，
+首先我们分析基于PoW的出块协议$\Pi_w$，根据公式\ref{eq:pow}，
 %Pr$(M(Tx,B',\zeta)=B)=$Pr$(h(c,x)<\frac{k}{d})$，
 对于哈希函数$h(\cdot)$，在给定$c$情况下，目前没有比穷举更好的算法来寻找$x$使其满足$h(c|x)<\frac{k}{d}$\cite{gilbert2003security}。即在任意时刻$t$无法预测$t+1$时刻$M$的输出，因此$\Pi_w$具有不可预测性。对于PoW协议，其挑战问题$c$的选择对不可预测性有非常大的影响，更详细的分析见附录\ref{ch:puzzle}。
 
 %即提案者成为领袖的随机性来自于$h$函数的随机性，。
 
-在给定$c$的情况下，Pr($M=B$)与困难程度$d$成反比。以比特币为例，系统会统计每2016个区块的总共出块时间来估计全网算力，从而动态调整$d$。因此采用PoW的选举协议可以保证合理的出块频率。
+在给定$c$的情况下，Pr($M=B$)与困难程度$d$成反比。以比特币为例，系统会统计每2016个区块的总共出块时间来估计全网算力，从而动态调整$d$。因此采用PoW的出块协议可以保证合理的出块频率。
 
 此外，目前有许多研究分析了针对PoW协议的攻击，更详细的介绍见附录\ref{ch:attack}。
 
@@ -187,7 +184,7 @@ $g(\cdot)$表示\textcolor{red}{某种}函数。
 
 \subsubsection{PoS协议}
 
-然后我们分析基于PoS的选举协议$\Pi_s$，根据公式\ref{eq:pos}，%Pr$(M(Tx,B',\zeta)=B)=$Pr$(g(s_i,\delta)=0)$。
+然后我们分析基于PoS的出块协议$\Pi_s$，根据公式\ref{eq:pos}，%Pr$(M(Tx,B',\zeta)=B)=$Pr$(g(s_i,\delta)=0)$。
 在给定$s_i$和函数$g$的情况下，$\Pi_s$的不可预测性来自于$\delta$的不可预测性。%\footnote{例如在Algorand中，$g(\cdot)$等价于计算$VRF_{sk_i}(\delta)$得到某个hash值是否位于某个区间内，区间大小随$s_i$单调递增。}。
 通常可验证随机数$\delta$来自于当前系统状态$\mathcal{L}(\hbar)$，例如\cite{gilad2017algorand}中的随机种子来自于上一个已确定的区块；\cite{david2018ouroboros}的随机种子来自于上个朝代（Epoch）的创世块（Genesis Block）。对于PoS协议，其可验证随机数$\delta$对不可预测性有非常大的影响，更详细的分析见附录\ref{ch:random_number}。
 
