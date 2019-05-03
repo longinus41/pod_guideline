@@ -238,5 +238,11 @@ TSWLatexianTemp*
 # standalone packages
 *.sta
 
+# pdf
+*.pdf
+
+# DS_Store
+*.DS_Store
+
 # generated if using elsarticle.cls
 *.spl
