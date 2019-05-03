@@ -3,7 +3,7 @@
 本章节主要给出区块链共识涉及到的相关定义，在此基础之上我们给出相关的评价指标。
 
 \subsection{网络模型}
-分布式系统中，节点之间的通信方式主要为消息传递（Message Passing）。根据网络传输延迟的设定，可以将系统划分为同步网络（Synchronous Network）和异步网络（Asynchronous Network）。在同步网络模型下，所有节点的消息传输延迟不会超过某个阈值；而在异步网络中，节点间的消息传输延迟可以是任意值。
+区块链系统中，节点之间的通信方式主要为消息传递（Message Passing）。根据网络传输延迟的设定，可以将系统划分为同步网络（Synchronous Network）和异步网络（Asynchronous Network）。在同步网络模型下，所有节点的消息传输延迟不会超过某个阈值；而在异步网络中，节点间的消息传输延迟可以是任意值。
 
 根据FLP定理\cite{fischer1982impossibility}，异步网络环境下，只要存在一个拜占庭节点，便不存在一种共识算法可以同时满足安全性（Safety）和活性（Liveness）\footnote{Blockchain in the Point of View of FLP Impossibility, https://medium.com/codechain/safety-and-liveness-blockchain-in-the-point-of-view-of-flp-impossibility-182e33927ce6}。因此现有的共识机制通常采用一些额外的假设，例如PBFT允许网络中除领袖以外节点之间的通信可以为异步网络，但主节点和副本节点之间的消息必须可达\cite{castro1999practical}；而Algorand则假设整个网络可以一段时间处于异步状态，但最终会回到同步状态\cite{gilad2017algorand}。这些设定通常称之为“弱终止假设”或“半异步网络模型”，但本质上仍然属于同步网络。综上，在本文中我们基于同步网络模型讨论共识算法。
 
